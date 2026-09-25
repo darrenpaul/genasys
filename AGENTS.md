@@ -39,6 +39,7 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 
 ## State Management
 
+- Use actions, reducers, and effects to manage state
 - Use signals for local component state
 - Use `computed()` for derived state
 - Keep state transformations pure and predictable
