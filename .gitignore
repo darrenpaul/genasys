@@ -6,6 +6,9 @@
 /out-tsc
 /bazel-out
 
+# Mutable local API database (tracked template: server/db.seed.json)
+/server/db.json
+
 # Node
 /node_modules
 npm-debug.log

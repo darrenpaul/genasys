@@ -1,63 +1,39 @@
 # Genesys
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.0.
+Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Feature pages, API services, and realistic seed records belong to later tutorial chapters; this is the tooling baseline.
 
-## Assessment tutorial
+## Runtime and installed versions
 
-Follow the staged [Customer and Quote Management Angular 22 tutorial](docs/customer-quote-assessment/README.md). Each chapter lives in a separate file and uses guided, intentionally incomplete examples rather than a copy-paste solution.
+Use `nvm use` (from `.nvmrc`), then `npm ci`. Angular's [compatibility table](https://angular.dev/reference/versions) lists Node `^22.22.3` as supported for Angular 22; Node 22.22.3 and npm 10.9.8 were used for this baseline. Installed versions are fixed by `package-lock.json`:
 
-## Development server
+| Package                                  | Version       |
+| ---------------------------------------- | ------------- |
+| Angular / CLI                            | 22.2.0        |
+| Angular Material / CDK                   | 22.2.0        |
+| NgRx Store / Effects / Entity / Devtools | 22.0.1        |
+| JSON Server                              | 1.0.0-beta.15 |
 
-To start a local development server, run:
+TypeScript and Angular templates use strict checking. Angular ESLint, Prettier, and Vitest are configured. No SSR or `AppModule` is used.
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Local development
 
 ```bash
-ng generate component component-name
+npm ci
+npm run dev
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Open `http://localhost:4200/`. `dev` starts Angular and JSON Server together; `npm run start` and `npm run api` start them separately. JSON Server listens on `127.0.0.1:3000`. Angular's development proxy removes `/api` before forwarding: `http://localhost:4200/api/customers` maps to JSON Server's `/customers`. Browser services should use relative `/api` URLs. This proxy only exists during `ng serve`; production hosting needs its own API routing.
+
+`server/db.seed.json` is tracked and initially contains empty `customers` and `quotes` collections. `npm run api` creates ignored `server/db.json` on first run, then preserves edits across restarts. `npm run db:reset` **overwrites local database**, restoring seed. Add realistic fake records to the seed in the domain-model chapter. JSON Server 1.0.0-beta.15 generates its own string ID on POST even if request includes `id`; use returned ID for later requests. JSON Server is a development mock, not a production backend. Do not put secrets in browser configuration.
+
+## Quality checks
 
 ```bash
-ng generate --help
+npm run test         # one Vitest run
+npm run test:watch   # interactive watch mode
+npm run lint
+npm run format:check
+npm run build
 ```
 
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+`npm run format` writes formatting changes. `npm run watch` watches development builds. No browser-based end-to-end runner is configured; check browser console manually when running app.
