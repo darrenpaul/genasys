@@ -1,4 +1,5 @@
 import { Component, DestroyRef, effect, inject, signal, viewChild } from '@angular/core';
+import { Actions, ofType } from '@ngrx/effects';
 import { MatButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
@@ -8,11 +9,10 @@ import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { catchError, finalize, of, switchMap, take } from 'rxjs';
+import { take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { customerActions, customerFeature } from './data-access/customer.store';
 import { Customer } from './data-access/customer.model';
-import { CustomerQuotesApi, hasRelatedQuotes } from './data-access/customers-api';
 import { ConfirmDelete } from './ui/confirm-delete';
 
 // The `/customers` list page: a searchable, sortable, paginated Material table
@@ -73,7 +73,16 @@ export class Customers {
   // `Store` is the NgRx store (think `useStore()` / `useCustomerStore()`).
   private readonly store = inject(Store);
   private readonly dialog = inject(MatDialog);
-  private readonly quotes = inject(CustomerQuotesApi);
+  // The stream of every dispatched action (see the subscription in the
+  // constructor). Listening to it from a component is unusual; it is done
+  // here because opening a dialog is UI work, which belongs to the component,
+  // while the "may this customer be deleted?" check now lives in an effect.
+  private readonly actions$ = inject(Actions);
+  // A random id for THIS page instance. It travels with `deleteCheckRequested`
+  // and comes back on `deleteCheckAllowed`, so a result that belongs to an
+  // earlier instance of this page (user left and came back quickly) is ignored
+  // instead of popping a dialog on the new one.
+  private readonly deleteCheckToken = crypto.randomUUID();
   // `DestroyRef` lets us tie subscriptions to this component's lifetime.
   private readonly destroyRef = inject(DestroyRef);
 
@@ -91,9 +100,15 @@ export class Customers {
   // with `.set(value)` or `.update(fn)`, never by assignment.
   // Filter and sort are deliberately local, not in NgRx: no other page cares.
   protected readonly filter = signal('');
+  // The three "something is happening to a row" markers. The first two live in
+  // the store because the check runs in an effect; the third is local because
+  // the dialog is opened by this component.
   /** id of the row whose "related quotes" check is in flight. */
-  protected readonly checkingId = signal<string | null>(null);
-  protected readonly deleteError = signal('');
+  protected readonly checkingId = this.store.selectSignal(customerFeature.selectCheckingId);
+  /** id of the row that cannot be deleted because it has quotes; drives the alert + link. */
+  protected readonly blockedId = this.store.selectSignal(customerFeature.selectBlockedId);
+  /** id of the row whose confirm dialog is open. */
+  protected readonly dialogId = signal<string | null>(null);
   // Column ids, matched against `matColumnDef="..."` in the template.
   protected readonly columns = [
     'name',
@@ -116,6 +131,12 @@ export class Customers {
   private readonly paginator = viewChild(MatPaginator);
 
   constructor() {
+    // Cancel any pending dependency check when this page is left. Old results
+    // must not lock a new page instance or show stale feedback. The
+    // `checkDelete` effect listens for this action with `takeUntil` and drops
+    // the HTTP request; the reducer clears `checkingId` and `blockedId`.
+    // `onDestroy` is the Angular equivalent of `onUnmounted`.
+    this.destroyRef.onDestroy(() => this.store.dispatch(customerActions.deleteCheckDismissed()));
     // Custom filter: search across the human-visible fields only. Ids are left
     // out on purpose so typing "c1" does not match a hidden database key.
     // `query` arrives already trimmed and lower-cased by `search()` below.
@@ -172,6 +193,33 @@ export class Customers {
       this.dataSource.paginator = this.paginator() ?? null;
     });
 
+    // Step 2 of the delete flow (step 1 is `requestDelete` below): the
+    // `checkDelete` effect found no related quotes and dispatched
+    // `deleteCheckAllowed`, so open the confirm dialog. `ofType` filters the
+    // action stream down to that one action; `takeUntilDestroyed` unsubscribes
+    // when the page is destroyed.
+    this.actions$
+      .pipe(ofType(customerActions.deleteCheckAllowed), takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ id, token }) => {
+        // Effects can finish after this page was left and re-opened. Only act
+        // on a result that this page instance asked for.
+        if (token !== this.deleteCheckToken) return;
+        const customer = this.customers().find((row) => row.id === id);
+        if (!customer) return;
+        this.dialogId.set(id);
+        this.dialog
+          .open(ConfirmDelete, {
+            data: { name: `${customer.firstName} ${customer.lastName}` },
+            autoFocus: 'first-tabbable',
+          })
+          .afterClosed()
+          .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+          .subscribe((confirmed: boolean) => {
+            this.dialogId.set(null);
+            // Step 3: the `delete` effect re-checks quotes and calls DELETE.
+            if (confirmed) this.store.dispatch(customerActions.deleteRequested({ id }));
+          });
+      });
     // Kick off the initial load. The `load` effect in customer.store.ts hears
     // this action, calls the API, and dispatches loadSucceeded/loadFailed.
     this.store.dispatch(customerActions.loadRequested());
@@ -209,56 +257,21 @@ export class Customers {
   }
 
   // Delete flow, in order:
-  //   1. ask the API whether this customer has quotes,
-  //   2. if not, open the confirm dialog,
-  //   3. if the user confirms, dispatch `deleteRequested` (the NgRx effect then
-  //      re-checks quotes and calls DELETE).
+  //   1. here: dispatch `deleteCheckRequested`; the `checkDelete` effect asks
+  //      the API whether this customer has quotes,
+  //   2. constructor: on `deleteCheckAllowed`, open the confirm dialog
+  //      (on `deleteCheckBlocked`, the template shows the alert via `blockedId`),
+  //   3. if the user confirms, dispatch `deleteRequested`; the `delete` effect
+  //      re-checks quotes and calls DELETE.
   //
-  // Written as one RxJS chain because both steps are async and step 2 depends
-  // on step 1. In Vue you would probably `await` two promises; here the
-  // equivalent is `switchMap`.
+  // An earlier version ran step 1 as an RxJS chain inside this method. Moving
+  // it into NgRx means the request is cancelled when the page is left, and the
+  // "checking" and "blocked" state is visible in devtools like everything else.
   protected requestDelete(customer: Customer): void {
-    // Guard against double clicks while a check or delete is already running.
-    if (this.checkingId() || this.deletingId()) return;
-    this.deleteError.set('');
-    this.checkingId.set(customer.id);
-    this.quotes
-      .related(customer.id)
-      .pipe(
-        // HTTP observables complete on their own, but `take(1)` documents the
-        // intent and protects against any source that might not.
-        take(1),
-        switchMap((response) => {
-          if (hasRelatedQuotes(response)) {
-            this.deleteError.set(
-              `Cannot delete ${customer.firstName} ${customer.lastName}: delete related quotes first.`,
-            );
-            // `of(false)` = "continue the chain with the value false".
-            return of(false);
-          }
-          // `afterClosed()` emits the value passed to `mat-dialog-close`:
-          // `true` for Delete, `undefined` for Cancel/Escape/backdrop click.
-          return this.dialog
-            .open(ConfirmDelete, {
-              data: { name: `${customer.firstName} ${customer.lastName}` },
-              autoFocus: 'first-tabbable',
-            })
-            .afterClosed()
-            .pipe(take(1));
-        }),
-        // Covers both a failed HTTP call and the `throw` inside hasRelatedQuotes.
-        catchError(() => {
-          this.deleteError.set('Could not check related quotes. Retry deletion.');
-          return of(false);
-        }),
-        // Runs on completion OR error, like `finally`.
-        finalize(() => this.checkingId.set(null)),
-        // Auto-unsubscribes if the user leaves the page mid-flight. This is the
-        // Angular way to avoid the "setState on unmounted component" class of bug.
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((confirmed: boolean) => {
-        if (confirmed) this.store.dispatch(customerActions.deleteRequested({ id: customer.id }));
-      });
+    // Guard against double clicks while a check, dialog or delete is running.
+    if (this.checkingId() || this.deletingId() || this.dialogId()) return;
+    this.store.dispatch(
+      customerActions.deleteCheckRequested({ id: customer.id, token: this.deleteCheckToken }),
+    );
   }
 }

@@ -69,5 +69,34 @@
       "universities": [{ "id": "u3", "name": "University of São Paulo" }]
     }
   ],
-  "quotes": []
+  "quotes": [
+    {
+      "id": "q1",
+      "customerId": "c1",
+      "amountInMinorUnits": 1001,
+      "status": "draft",
+      "createdAt": "2025-04-01T12:00:00.000Z"
+    },
+    {
+      "id": "q2",
+      "customerId": "c1",
+      "amountInMinorUnits": 125000,
+      "status": "submitted",
+      "createdAt": "2025-04-02T12:00:00.000Z"
+    },
+    {
+      "id": "q3",
+      "customerId": "c2",
+      "amountInMinorUnits": 320050,
+      "status": "approved",
+      "createdAt": "2025-04-03T12:00:00.000Z"
+    },
+    {
+      "id": "q4",
+      "customerId": "c2",
+      "amountInMinorUnits": 89000,
+      "status": "declined",
+      "createdAt": "2025-04-04T12:00:00.000Z"
+    }
+  ]
 }

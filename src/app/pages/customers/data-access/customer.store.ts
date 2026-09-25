@@ -11,7 +11,7 @@ import {
   props,
 } from '@ngrx/store';
 import { Router } from '@angular/router';
-import { catchError, exhaustMap, map, of, switchMap, tap } from 'rxjs';
+import { catchError, exhaustMap, map, of, switchMap, takeUntil, tap } from 'rxjs';
 import { NotificationService } from '../../../shell/notification.service';
 import { Customer, CustomerDraft } from './customer.model';
 import { CustomerQuotesApi, CustomersApi, hasRelatedQuotes } from './customers-api';
@@ -59,6 +59,16 @@ export const customerActions = createActionGroup({
     'Update requested': props<{ customer: Customer; originNavigationId: number | null }>(),
     'Update succeeded': props<{ customer: Customer; originNavigationId: number | null }>(),
     'Update failed': props<{ error: string }>(),
+    // The pre-delete "does this customer have quotes?" check. It is its own
+    // little state machine so the list page can show "checking" and "blocked"
+    // per row and so leaving the page can cancel it (`dismissed`).
+    // `token` identifies the page instance that asked; the page ignores an
+    // `allowed` result carrying someone else's token (see customers.ts).
+    'Delete check requested': props<{ id: string; token: string }>(),
+    'Delete check dismissed': emptyProps(),
+    'Delete check allowed': props<{ id: string; token: string }>(),
+    'Delete check blocked': props<{ id: string }>(),
+    'Delete check failed': props<{ id: string; error: string }>(),
     'Delete requested': props<{ id: string }>(),
     'Delete succeeded': props<{ id: string }>(),
     'Delete failed': props<{ error: string }>(),
@@ -77,6 +87,10 @@ interface CustomerState extends EntityState<Customer> {
   saveStatus: 'idle' | 'saving' | 'error';
   /** id of the customer currently being deleted, so only that row's button disables. */
   deletingId: string | null;
+  /** id of the customer whose "related quotes" check is in flight. */
+  checkingId: string | null;
+  /** id of the customer the last check refused to delete; the page links to its quotes. */
+  blockedId: string | null;
   error: string | null;
 }
 
@@ -88,6 +102,8 @@ const initialState: CustomerState = adapter.getInitialState({
   loadStatus: 'idle',
   saveStatus: 'idle',
   deletingId: null,
+  checkingId: null,
+  blockedId: null,
   error: null,
 });
 
@@ -134,6 +150,34 @@ export const customerFeature = createFeature({
     on(customerActions.createFailed, customerActions.updateFailed, (state, { error }) => ({
       ...state,
       saveStatus: 'error' as const,
+      error,
+    })),
+    // Starting a new check clears any previous "blocked" message.
+    on(customerActions.deleteCheckRequested, (state, { id }) => ({
+      ...state,
+      checkingId: id,
+      blockedId: null,
+      error: null,
+    })),
+    // Page left: forget everything about the check.
+    on(customerActions.deleteCheckDismissed, (state) => ({
+      ...state,
+      checkingId: null,
+      blockedId: null,
+      error: null,
+    })),
+    // "Allowed" only clears the flag; the confirm dialog is UI, so the list
+    // page opens it after hearing this action.
+    on(customerActions.deleteCheckAllowed, (state) => ({ ...state, checkingId: null })),
+    on(customerActions.deleteCheckBlocked, (state, { id }) => ({
+      ...state,
+      checkingId: null,
+      blockedId: id,
+      error: 'Delete related quotes first.',
+    })),
+    on(customerActions.deleteCheckFailed, (state, { error }) => ({
+      ...state,
+      checkingId: null,
       error,
     })),
     on(customerActions.deleteRequested, (state, { id }) => ({
@@ -259,10 +303,44 @@ export const customerEffects = {
       ),
     { functional: true },
   ),
-  // Delete is a two-step chain: check for related quotes first, and only then
-  // call DELETE. The list page already ran this check before showing the
-  // confirm dialog; re-checking here narrows the window where a quote could
-  // have been added in between. A real backend must enforce this server-side.
+  // Step 1 of deleting: ask the API whether the customer has quotes, BEFORE
+  // the confirm dialog is shown. Emits exactly one of allowed / blocked /
+  // failed. `token` is passed straight through so the page can match the
+  // result to the instance that asked for it.
+  //
+  // `takeUntil(... deleteCheckDismissed)` is the cancellation: when the page is
+  // destroyed it dispatches `dismissed`, the inner Observable completes, and
+  // because it is an `HttpClient` Observable the HTTP request itself is
+  // aborted. Nothing is emitted afterwards, not even `failed`.
+  checkDelete: createEffect(
+    (actions$ = inject(Actions), quotes = inject(CustomerQuotesApi)) =>
+      actions$.pipe(
+        ofType(customerActions.deleteCheckRequested),
+        exhaustMap(({ id, token }) =>
+          quotes.related(id).pipe(
+            map((response) =>
+              hasRelatedQuotes(response)
+                ? customerActions.deleteCheckBlocked({ id })
+                : customerActions.deleteCheckAllowed({ id, token }),
+            ),
+            catchError(() =>
+              of(
+                customerActions.deleteCheckFailed({
+                  id,
+                  error: 'Could not check related quotes. Retry deletion.',
+                }),
+              ),
+            ),
+            takeUntil(actions$.pipe(ofType(customerActions.deleteCheckDismissed))),
+          ),
+        ),
+      ),
+    { functional: true },
+  ),
+  // Step 3: the user confirmed. Re-check for quotes and only then call DELETE.
+  // `checkDelete` already ran before the dialog; re-checking here narrows the
+  // window in which a quote could have been added in between. A real backend
+  // must enforce this server-side; the frontend cannot close the race fully.
   delete: createEffect(
     (actions$ = inject(Actions), api = inject(CustomersApi), quotes = inject(CustomerQuotesApi)) =>
       actions$.pipe(

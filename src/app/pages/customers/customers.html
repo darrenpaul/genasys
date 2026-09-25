@@ -37,8 +37,12 @@
       <button mat-button (click)="retry()">Retry</button>
     }
   }
-  @if (deleteError()) {
-    <p role="alert">{{ deleteError() }}</p>
+  <!-- Set by the store when the pre-delete check finds quotes. The link opens
+       the quotes list already filtered to this customer, so the user can act
+       on the message instead of hunting for the quotes. -->
+  @if (blockedId()) {
+    <p role="alert">Cannot delete customer: delete related quotes first.</p>
+    <a mat-button routerLink="/quotes" [queryParams]="{ customerId: blockedId() }">View quotes</a>
   }
   @if (customers().length === 0) {
     <p>No customers yet. Add your first customer.</p>
@@ -126,12 +130,22 @@
               [attr.aria-label]="'Edit ' + customer.firstName + ' ' + customer.lastName"
               >Edit</a
             >
-            <!-- Disabled only for the row being checked/deleted, not the whole table. -->
+            <!-- `[queryParams]` appends `?customerId=<id>`; the quotes page reads it
+                 from the URL and applies the filter. Vue: `:to="{ path, query }"`. -->
+            <a
+              mat-button
+              routerLink="/quotes"
+              [queryParams]="{ customerId: customer.id }"
+              [attr.aria-label]="'View quotes for ' + customer.firstName + ' ' + customer.lastName"
+              >View quotes</a
+            >
+            <!-- Every Delete button locks while any check, dialog or delete is in
+                 progress, so two flows can never overlap. -->
             <button
               mat-button
               type="button"
               (click)="requestDelete(customer)"
-              [disabled]="checkingId() === customer.id || deletingId() === customer.id"
+              [disabled]="!!checkingId() || !!dialogId() || !!deletingId()"
               [attr.aria-label]="'Delete ' + customer.firstName + ' ' + customer.lastName"
             >
               Delete

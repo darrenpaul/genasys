@@ -1,1 +1,183 @@
-<h1>Quotes</h1>
+<!--
+  Template for the Quotes list page (the class is in quotes.ts).
+
+  Angular template syntax next to the Vue equivalents, as used below:
+
+    {{ expr }}                  same as Vue
+    [prop]="expr"               :prop="expr"           (property binding)
+    [attr.aria-label]="expr"    :aria-label="expr"     (attribute binding, see note)
+    (event)="handler($event)"   @event="handler($event)"
+    @if / @else if / @else      v-if / v-else-if / v-else
+    @for (x of xs; track key)   v-for="x in xs" :key="key"   (track is mandatory)
+    #heading                    ref="heading"
+    value | currency: 'EUR'     a Vue 2 filter, or a computed in Vue 3
+    routerLink="/x"             <RouterLink to="/x">
+
+  Signals are functions, so state is read WITH parentheses: `quotes()`,
+  `customerId()`. Forgetting them compares the function object itself, which is
+  always truthy. It is the most common slip when starting out.
+
+  Attribute binding note: `[prop]` sets a DOM property. `aria-*` and `role` are
+  not properties Angular's compiler knows, so they need the `attr.` prefix.
+  Binding `null` to an `attr.` removes the attribute entirely.
+-->
+<div class="toolbar">
+  <!-- tabindex="-1" makes the heading focusable from code (after a delete)
+       without adding it to the Tab order. -->
+  <h1 #heading tabindex="-1">Quotes</h1>
+  <!-- Pass the current filters along so the form can preselect the customer
+       and bring the user back to the same filtered list after saving.
+       `[queryParams]` with null values simply omits those keys. -->
+  <a
+    mat-flat-button
+    routerLink="/quotes/new"
+    [queryParams]="{ customerId: customerId(), status: statusParam() }"
+    >Add quote</a
+  >
+</div>
+
+<!-- role="alert" makes screen readers announce the message as soon as it
+     appears; no focus change needed. -->
+@if (error() || customersError()) {
+  <p role="alert">{{ error() || customersError() }}</p>
+  @if (status() === 'error' || customersStatus() === 'error') {
+    <button mat-button (click)="retry()">Retry</button>
+  }
+}
+<!-- Show the spinner text only on the FIRST load. A refresh with rows already
+     on screen keeps the table visible instead of flashing "Loading". -->
+@if ((status() === 'loading' && !quotes().length) || customersStatus() === 'loading') {
+  <p role="status">Loading quotes…</p>
+} @else if (status() !== 'error' || quotes().length) {
+  <!-- `customer()!` : the non-null assertion is safe because the @if above
+       already checked it. Angular does not narrow signal calls automatically. -->
+  @if (customerId() && customer()) {
+    <p>
+      Showing quotes for {{ customer()!.firstName }} {{ customer()!.lastName }}
+      <button mat-button (click)="filterCustomer(null)">Clear customer filter</button>
+    </p>
+  }
+  @if (invalidCustomer()) {
+    <p role="alert">Customer filter cannot be resolved. No quotes shown.</p>
+    <button mat-button (click)="filterCustomer(null)">Clear customer filter</button>
+  }
+  @if (invalidStatus()) {
+    <p role="alert">Unknown quote status. No quotes shown.</p>
+    <button mat-button (click)="filterStatus(null)">Clear status filter</button>
+  }
+  <!-- The selects are one-way bound on purpose: `[value]` comes from the URL
+       and `(valueChange)` writes back to the URL. A `[(value)]` two-way
+       binding (v-model) would make the select its own source of truth. -->
+  <div class="filters">
+    <mat-form-field>
+      <mat-label>Filter by customer</mat-label>
+      <mat-select [value]="customerId()" (valueChange)="filterCustomer($event)">
+        <mat-option [value]="null">All customers</mat-option>
+        @for (option of customers(); track option.id) {
+          <mat-option [value]="option.id">{{ option.firstName }} {{ option.lastName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Filter by status</mat-label>
+      <mat-select [value]="statusParam()" (valueChange)="filterStatus($event)">
+        <mat-option [value]="null">All statuses</mat-option>
+        <!-- `statuses` is a plain array, not a signal, so no parentheses. -->
+        @for (option of statuses; track option) {
+          <mat-option [value]="option">{{ option }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+  @if (!invalidCustomer() && !invalidStatus() && customersStatus() === 'loaded') {
+    <!-- aria-live="polite" announces the new count after each filter change
+         without interrupting whatever the screen reader is currently saying. -->
+    <p aria-live="polite">{{ rows().length }} quotes found</p>
+    @if (!quotes().length) {
+      <p>No quotes yet. Add your first quote.</p>
+    } @else if (!rows().length) {
+      <p>No quotes match filters.</p>
+    }
+    <!--
+      Material's table is column-oriented. Each <ng-container matColumnDef="x">
+      declares how the header cell and the body cell of column "x" render, and
+      the two <tr> lines at the bottom say which columns appear, in what order
+      (`columns` in the class). `*matHeaderCellDef` / `*matCellDef` are
+      structural directives, the Angular equivalent of a named `<template
+      v-slot>` that the table stamps out per row; `let row` is the slot prop.
+      <ng-container> renders no element of its own, like Vue's <template>.
+
+      `matSort` on the table plus `mat-sort-header` on a <th> makes that column
+      sortable; `matSortActive` / `matSortDirection` set the initial sort.
+    -->
+    <div class="table-scroll">
+      <table
+        mat-table
+        [dataSource]="dataSource"
+        matSort
+        matSortActive="createdAt"
+        matSortDirection="desc"
+        aria-label="Quotes"
+      >
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Quote ID</th>
+          <td mat-cell *matCellDef="let row">{{ row.id }}</td>
+        </ng-container>
+        <ng-container matColumnDef="customer">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Customer</th>
+          <td mat-cell *matCellDef="let row">{{ row.customerName }}</td>
+        </ng-container>
+        <ng-container matColumnDef="amount">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Amount</th>
+          <!-- Cents to euros for display only; the stored value stays an integer.
+               Pipe arguments follow a colon: `currency: 'EUR'`. -->
+          <td mat-cell *matCellDef="let row">
+            {{ row.amountInMinorUnits / 100 | currency: 'EUR' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <td mat-cell *matCellDef="let row">{{ row.status }}</td>
+        </ng-container>
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Created</th>
+          <!-- Second pipe argument is the timezone; 'UTC' keeps the date stable
+               regardless of the viewer's locale offset. -->
+          <td mat-cell *matCellDef="let row">{{ row.createdAt | date: 'mediumDate' : 'UTC' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <!-- Visually empty header, but screen readers still get a column name. -->
+          <th mat-header-cell *matHeaderCellDef><span class="sr-only">Quote actions</span></th>
+          <td mat-cell *matCellDef="let row">
+            <!-- Array form of routerLink builds `/quotes/<id>/edit` and URL-encodes
+                 each segment. -->
+            <a
+              mat-button
+              [routerLink]="['/quotes', row.id, 'edit']"
+              [queryParams]="{ customerId: customerId(), status: statusParam() }"
+              [attr.aria-label]="'Edit quote ' + row.id"
+              >Edit</a
+            >
+            <!-- `!!` turns the id-or-null into a boolean for [disabled]. All
+                 Delete buttons lock while any dialog or DELETE is in progress. -->
+            <button
+              mat-button
+              type="button"
+              (click)="requestDelete(row)"
+              [disabled]="!!deletingId() || !!dialogId()"
+              [attr.aria-label]="'Delete quote ' + row.id"
+            >
+              Delete
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      </table>
+    </div>
+    <!-- Self-closing tags are allowed for components in Angular 16+. -->
+    @if (rows().length) {
+      <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25]" aria-label="Quote pages" />
+    }
+  }
+}

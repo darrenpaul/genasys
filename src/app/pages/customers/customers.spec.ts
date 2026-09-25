@@ -149,6 +149,39 @@ describe('Customers page', () => {
     http.verify();
   });
 
+  it('blocks customer delete when quote appears after confirmation', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/customers').flush(rows);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('button[aria-label="Delete Amina Okafor"]')!.click();
+    http
+      .expectOne(
+        (request) => request.url === '/api/quotes' && request.params.get('customerId') === 'c1',
+      )
+      .flush([]);
+    await fixture.whenStable();
+    const dialog = document.querySelector('mat-dialog-container')!;
+    [...dialog.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Delete')!
+      .click();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    http
+      .expectOne(
+        (request) => request.url === '/api/quotes' && request.params.get('customerId') === 'c1',
+      )
+      .flush([{ id: 'q1' }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(root.textContent).toContain('Customer has quotes. Delete quotes first.');
+    expect(root.querySelector('button[aria-label="Delete Amina Okafor"]')).toBeTruthy();
+    http.expectNone('/api/customers/c1');
+    http.verify();
+  });
+
   it('offers Retry after a failed refresh with previously loaded rows', async () => {
     const fixture = TestBed.createComponent(Customers);
     const http = TestBed.inject(HttpTestingController);
@@ -171,6 +204,90 @@ describe('Customers page', () => {
     http.verify();
   });
 
+  // `fixture.destroy()` unmounts the page, which dispatches `deleteCheckDismissed`
+  // from its `onDestroy` hook. `pending.cancelled` is HttpTestingController's
+  // way of confirming the effect unsubscribed and the request was aborted. A
+  // fresh page instance must then start with an enabled Delete button.
+  it('cancels pending dependency lookup when list page is destroyed', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/customers').flush(rows);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('button[aria-label="Delete Amina Okafor"]')!.click();
+    const pending = http.expectOne(
+      (request) => request.url === '/api/quotes' && request.params.get('customerId') === 'c1',
+    );
+    fixture.destroy();
+    expect(pending.cancelled).toBe(true);
+    const next = TestBed.createComponent(Customers);
+    next.detectChanges();
+    http.expectOne('/api/customers').flush(rows);
+    await next.whenStable();
+    next.detectChanges();
+    const freshButton = (next.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete Amina Okafor"]',
+    )!;
+    expect(freshButton.disabled).toBe(false);
+    freshButton.click();
+    http
+      .expectOne(
+        (request) => request.url === '/api/quotes' && request.params.get('customerId') === 'c1',
+      )
+      .flush([{ id: 'q1' }]);
+    http.verify();
+  });
+
+  // Dispatching `deleteCheckAllowed` with a made-up token simulates a result
+  // from a previous page instance arriving late. No dialog may open.
+  it('ignores a dependency result from an earlier page instance', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/customers').flush(rows);
+    await fixture.whenStable();
+    TestBed.inject(Store).dispatch(
+      customerActions.deleteCheckAllowed({ id: 'c1', token: 'old-page' }),
+    );
+    fixture.detectChanges();
+    expect(document.querySelector('mat-dialog-container')).toBeNull();
+    http.verify();
+  });
+
+  it('fails closed on malformed quote lookup and allows retry', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/customers').flush(rows);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const button = root.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete Amina Okafor"]',
+    )!;
+    button.click();
+    http
+      .expectOne(
+        (request) => request.url === '/api/quotes' && request.params.get('customerId') === 'c1',
+      )
+      .flush({ bad: true });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(root.textContent).toContain('Could not check related quotes. Retry deletion.');
+    http.expectNone('/api/customers/c1');
+    button.click();
+    http
+      .expectOne(
+        (request) => request.url === '/api/quotes' && request.params.get('customerId') === 'c1',
+      )
+      .flush([{ id: 'q1' }]);
+    http.verify();
+  });
+
+  // The blocked state now also renders a "View quotes" link pre-filtered to
+  // this customer; the href assertion covers `[queryParams]` serialisation.
   it('blocks deletion when customer has related quotes', async () => {
     const fixture = TestBed.createComponent(Customers);
     const http = TestBed.inject(HttpTestingController);
@@ -188,6 +305,7 @@ describe('Customers page', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(root.textContent).toContain('delete related quotes first');
+    expect(root.querySelector('a[href="/quotes?customerId=c1"]')).toBeTruthy();
     http.expectNone('/api/customers/c1');
     http.verify();
   });
