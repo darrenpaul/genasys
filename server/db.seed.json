@@ -1,4 +1,73 @@
 {
-  "customers": [],
+  "customers": [
+    {
+      "id": "c1",
+      "firstName": "Amina",
+      "lastName": "Okafor",
+      "email": "amina@example.test",
+      "nationality": "Nigerian",
+      "createdAt": "2025-01-15T12:00:00.000Z",
+      "addresses": [
+        {
+          "id": "a1",
+          "street": "10 Maple Lane",
+          "city": "Lagos",
+          "suburb": "Yaba",
+          "postalCode": "101212",
+          "countryCode": "NG"
+        },
+        {
+          "id": "a2",
+          "street": "42 Birch Road",
+          "city": "Abuja",
+          "suburb": "Wuse",
+          "postalCode": "900001",
+          "countryCode": "NG"
+        }
+      ],
+      "universities": [
+        { "id": "u1", "name": "University of Lagos" },
+        { "id": "u2", "name": "University of Ibadan" }
+      ]
+    },
+    {
+      "id": "c2",
+      "firstName": "Maya",
+      "lastName": "Chen",
+      "email": "maya@example.test",
+      "nationality": null,
+      "createdAt": "2025-02-10T12:00:00.000Z",
+      "addresses": [
+        {
+          "id": "a3",
+          "street": "7 River Street",
+          "city": "Melbourne",
+          "suburb": "Richmond",
+          "postalCode": "3121",
+          "countryCode": "AU"
+        }
+      ],
+      "universities": []
+    },
+    {
+      "id": "c3",
+      "firstName": "Leo",
+      "lastName": "Silva",
+      "email": "leo@example.test",
+      "nationality": "Brazilian",
+      "createdAt": "2025-03-20T12:00:00.000Z",
+      "addresses": [
+        {
+          "id": "a4",
+          "street": "21 Garden Avenue",
+          "city": "São Paulo",
+          "suburb": "Pinheiros",
+          "postalCode": "05422-000",
+          "countryCode": "BR"
+        }
+      ],
+      "universities": [{ "id": "u3", "name": "University of São Paulo" }]
+    }
+  ],
   "quotes": []
 }

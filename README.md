@@ -1,6 +1,6 @@
 # Genesys
 
-Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Accessible application shell and empty Customers/Quotes pages are available. Customer and quote workflows, API services, and realistic seed records belong to later tutorial chapters.
+Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Accessible application shell and empty Customers/Quotes pages are available. Customers can be listed, searched, sorted, created, edited, and deleted through lazy-loaded Angular Material pages backed by NgRx and JSON Server. Quote management remains a placeholder.
 
 ## Runtime and installed versions
 
@@ -24,7 +24,7 @@ npm run dev
 
 Open `http://localhost:4200/`. `dev` starts Angular and JSON Server together; `npm run start` and `npm run api` start them separately. JSON Server listens on `127.0.0.1:3000`. Angular's development proxy removes `/api` before forwarding: `http://localhost:4200/api/customers` maps to JSON Server's `/customers`. Browser services should use relative `/api` URLs. This proxy only exists during `ng serve`; production hosting needs its own API routing.
 
-`server/db.seed.json` is tracked and initially contains empty `customers` and `quotes` collections. `npm run api` creates ignored `server/db.json` on first run, then preserves edits across restarts. `npm run db:reset` **overwrites local database**, restoring seed. Add realistic fake records to the seed in the domain-model chapter. JSON Server 1.0.0-beta.15 generates its own string ID on POST even if request includes `id`; use returned ID for later requests. JSON Server is a development mock, not a production backend. Do not put secrets in browser configuration.
+`server/db.seed.json` is tracked and contains fake customers and an empty `quotes` collection. `npm run api` creates ignored `server/db.json` on first run, then preserves edits across restarts. `npm run db:reset` **overwrites local database**, restoring seed. JSON Server 1.0.0-beta.15 generates its own string ID on POST even if request includes `id`; use returned ID for later requests. Customer nationality and universities are manually entered for now; university selections are an array. `createdAt` is set on create and preserved on edit. Customer state is owned by NgRx; table filter/sort state is local. JSON Server is a development mock, not a production backend. Before deleting a customer, the UI checks `/api/quotes?customerId=<id>` and the delete effect rechecks it; malformed or failed checks block deletion. A real API must enforce quote-reference guards atomically server-side: frontend checks alone cannot eliminate check-then-delete races. Do not put secrets in browser configuration.
 
 ## Quality checks
 

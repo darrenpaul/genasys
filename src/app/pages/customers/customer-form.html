@@ -1,0 +1,246 @@
+<!--
+  Template for the create/edit customer form (see customer-form.ts).
+
+  Key Signal Forms bits used below:
+    [formField]="customerForm.firstName"   two-way binding, like v-model.
+    customerForm.firstName()               the field's state object.
+      .touched()   user has focused and left the input
+      .invalid()   at least one rule fails
+      .errors()    array of { kind, message } for the failing rules
+
+  Error display rule, repeated for every required field:
+    show the error when the field is invalid AND (the user has touched it OR
+    they have tried to submit). This avoids shouting "required" at an empty
+    form the user has not started filling in yet.
+-->
+
+<h1>{{ editId() ? 'Edit customer' : 'Add customer' }}</h1>
+
+<!-- Edit mode while the customer is still loading (or failed to load). -->
+@if (editId() && !currentCustomer()) {
+  @if (status() === 'error') {
+    <p role="alert">{{ error() }}</p>
+    <a mat-button routerLink="/customers">Back to customers</a>
+  } @else {
+    <p role="status">Loading customer…</p>
+  }
+} @else {
+  <!-- Save errors from the store (e.g. network failure on submit). -->
+  @if (error()) {
+    <p role="alert">{{ error() }}</p>
+  }
+  <!--
+    `novalidate` turns off the browser's built-in validation bubbles so our own
+    messages (and the scroll-to-first-error logic) are the only feedback.
+    `#formElement` is picked up by `viewChild('formElement')` in the class.
+  -->
+  <form #formElement (submit)="save($event)" novalidate>
+    <!--
+      Pattern for one Material text field:
+        <mat-form-field>  the outlined box, label animation, error slot
+        <mat-label>       floating label
+        <input matInput>  the actual input, wired to the field
+        <mat-error>       shown in the field's error slot
+      `aria-invalid` is bound to `null` when valid so the attribute is removed
+      entirely rather than rendered as aria-invalid="false".
+    -->
+    <mat-form-field>
+      <mat-label>First name</mat-label>
+      <input
+        matInput
+        [formField]="customerForm.firstName"
+        autocomplete="given-name"
+        [attr.aria-invalid]="
+          (attempted() || customerForm.firstName().touched()) && customerForm.firstName().invalid()
+            ? true
+            : null
+        "
+      />
+      @if (
+        (attempted() || customerForm.firstName().touched()) && customerForm.firstName().invalid()
+      ) {
+        <!-- Only the first failing rule's message is shown, to keep it readable. -->
+        <mat-error>{{ customerForm.firstName().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Last name</mat-label>
+      <input
+        matInput
+        [formField]="customerForm.lastName"
+        autocomplete="family-name"
+        [attr.aria-invalid]="
+          (attempted() || customerForm.lastName().touched()) && customerForm.lastName().invalid()
+            ? true
+            : null
+        "
+      />
+      @if (
+        (attempted() || customerForm.lastName().touched()) && customerForm.lastName().invalid()
+      ) {
+        <mat-error>{{ customerForm.lastName().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Email</mat-label>
+      <input
+        matInput
+        type="email"
+        [formField]="customerForm.email"
+        autocomplete="email"
+        [attr.aria-invalid]="
+          (attempted() || customerForm.email().touched()) && customerForm.email().invalid()
+            ? true
+            : null
+        "
+      />
+      @if ((attempted() || customerForm.email().touched()) && customerForm.email().invalid()) {
+        <mat-error>{{ customerForm.email().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
+    <!-- Optional field: no rules in the schema, so no error handling needed. -->
+    <mat-form-field>
+      <mat-label>Nationality (optional)</mat-label>
+      <input matInput [formField]="customerForm.nationality" />
+    </mat-form-field>
+
+    <h2>Addresses</h2>
+    <!--
+      Looping over an array field. `customerForm.addresses` is iterable and
+      yields one sub-form per address; `address.street` etc. bind the same way
+      as top-level fields.
+
+      `track address().value().id` is Angular's `:key`. We track by the
+      client-generated id rather than `$index` so removing the first address
+      moves the remaining inputs instead of re-creating them (which would
+      lose focus and touched state).
+
+      `let i = $index` exposes the index for the legend and aria-label.
+    -->
+    @for (address of customerForm.addresses; track address().value().id; let i = $index) {
+      <!-- <fieldset>/<legend> group the inputs semantically for screen readers. -->
+      <fieldset>
+        <legend>Address {{ i + 1 }}</legend>
+        <mat-form-field>
+          <mat-label>Street</mat-label>
+          <input
+            matInput
+            [formField]="address.street"
+            [attr.aria-invalid]="
+              (attempted() || address.street().touched()) && address.street().invalid()
+                ? true
+                : null
+            "
+          />
+          @if ((attempted() || address.street().touched()) && address.street().invalid()) {
+            <mat-error>{{ address.street().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>City</mat-label>
+          <input
+            matInput
+            [formField]="address.city"
+            [attr.aria-invalid]="
+              (attempted() || address.city().touched()) && address.city().invalid() ? true : null
+            "
+          />
+          @if ((attempted() || address.city().touched()) && address.city().invalid()) {
+            <mat-error>{{ address.city().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Suburb (optional)</mat-label>
+          <input matInput [formField]="address.suburb" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Postal code</mat-label>
+          <input
+            matInput
+            [formField]="address.postalCode"
+            [attr.aria-invalid]="
+              (attempted() || address.postalCode().touched()) && address.postalCode().invalid()
+                ? true
+                : null
+            "
+          />
+          @if ((attempted() || address.postalCode().touched()) && address.postalCode().invalid()) {
+            <mat-error>{{ address.postalCode().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Country code</mat-label>
+          <input
+            matInput
+            [formField]="address.countryCode"
+            [attr.aria-invalid]="
+              (attempted() || address.countryCode().touched()) && address.countryCode().invalid()
+                ? true
+                : null
+            "
+          />
+          @if (
+            (attempted() || address.countryCode().touched()) && address.countryCode().invalid()
+          ) {
+            <mat-error>{{ address.countryCode().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+        <!--
+          `type="button"` is important: a <button> inside a <form> defaults to
+          type="submit", which would trigger `save()` on click.
+          Disabled when this is the only address, matching the min-1 rule.
+        -->
+        <button
+          mat-button
+          type="button"
+          (click)="removeAddress(address().value().id)"
+          [disabled]="model().addresses.length === 1"
+          [attr.aria-label]="'Remove address ' + (i + 1)"
+        >
+          Remove address
+        </button>
+      </fieldset>
+    }
+    <button mat-button type="button" (click)="addAddress()">Add address</button>
+
+    <h2>Universities attended (optional)</h2>
+    <!-- Same pattern as addresses; the list may be empty. -->
+    @for (university of customerForm.universities; track university().value().id; let i = $index) {
+      <fieldset>
+        <legend>University {{ i + 1 }}</legend>
+        <mat-form-field>
+          <mat-label>University name</mat-label>
+          <input
+            matInput
+            [formField]="university.name"
+            [attr.aria-invalid]="
+              (attempted() || university.name().touched()) && university.name().invalid()
+                ? true
+                : null
+            "
+          />
+          @if ((attempted() || university.name().touched()) && university.name().invalid()) {
+            <mat-error>{{ university.name().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+        <button
+          mat-button
+          type="button"
+          (click)="removeUniversity(university().value().id)"
+          [attr.aria-label]="'Remove university ' + (i + 1)"
+        >
+          Remove university
+        </button>
+      </fieldset>
+    }
+    <button mat-button type="button" (click)="addUniversity()">Add university</button>
+
+    <div class="actions">
+      <!-- The only type="submit" button in the form. Label doubles as a saving indicator. -->
+      <button mat-flat-button type="submit" [disabled]="saving() === 'saving'">
+        {{ saving() === 'saving' ? 'Saving…' : 'Save customer' }}
+      </button>
+      <a mat-button routerLink="/customers">Cancel</a>
+    </div>
+  </form>
+}

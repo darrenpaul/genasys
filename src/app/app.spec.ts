@@ -1,4 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { provideStore } from '@ngrx/store';
+import { provideEffects } from '@ngrx/effects';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
@@ -9,7 +13,17 @@ describe('App shell', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(routes)],
+      // The customer routes register their own NgRx slice with `provideState`
+      // and `provideEffects`, which require a root store and root effects to
+      // already exist. The app config provides those in production; the test
+      // has to provide them too, along with a fake HTTP backend.
+      providers: [
+        provideRouter(routes),
+        provideStore(),
+        provideEffects(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     }).compileComponents();
   });
 
