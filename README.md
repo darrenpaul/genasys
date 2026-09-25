@@ -2,6 +2,10 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.0.
 
+## Assessment tutorial
+
+Follow the staged [Customer and Quote Management Angular 22 tutorial](docs/customer-quote-assessment/README.md). Each chapter lives in a separate file and uses guided, intentionally incomplete examples rather than a copy-paste solution.
+
 ## Development server
 
 To start a local development server, run:
