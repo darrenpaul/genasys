@@ -52,7 +52,6 @@ function blankAddress(): Address {
     city: '',
     suburb: '',
     postalCode: '',
-    countryCode: '',
   };
 }
 
@@ -68,7 +67,7 @@ function blankModel(): CustomerFormModel {
     nationality: '',
     // Business rule: a customer always has at least one address.
     addresses: [blankAddress()],
-    universities: [],
+    universities: [blankUniversity()],
   };
 }
 
@@ -142,12 +141,9 @@ export class CustomerForm {
       pattern(address.city, /\S/, { message: 'City cannot be blank.' });
       required(address.postalCode, { message: 'Postal code is required.' });
       pattern(address.postalCode, /\S/, { message: 'Postal code cannot be blank.' });
-      required(address.countryCode, { message: 'Country code is required.' });
-      pattern(address.countryCode, /^[a-zA-Z]{2}$/, { message: 'Use a two-letter country code.' });
     });
     applyEach(path.universities, (university) => {
-      required(university.name, { message: 'University name is required.' });
-      pattern(university.name, /\S/, { message: 'University name cannot be blank.' });
+      pattern(university.name, /^$|\S/, { message: 'University name cannot be blank.' });
     });
   });
 
@@ -203,8 +199,16 @@ export class CustomerForm {
           lastName: customer.lastName,
           email: customer.email,
           nationality: customer.nationality ?? '',
-          addresses: customer.addresses.map((a) => ({ ...a })),
-          universities: customer.universities.map((u) => ({ ...u })),
+          addresses: customer.addresses.map(({ id, street, city, suburb, postalCode }) => ({
+            id,
+            street,
+            city,
+            suburb,
+            postalCode,
+          })),
+          universities: [
+            customer.universities[0] ? { ...customer.universities[0] } : blankUniversity(),
+          ],
         });
       });
   }
@@ -223,19 +227,6 @@ export class CustomerForm {
         value.addresses.length > 1 ? value.addresses.filter((a) => a.id !== id) : value.addresses,
     }));
   }
-  protected addUniversity(): void {
-    this.model.update((value) => ({
-      ...value,
-      universities: [...value.universities, blankUniversity()],
-    }));
-  }
-  protected removeUniversity(id: string): void {
-    this.model.update((value) => ({
-      ...value,
-      universities: value.universities.filter((u) => u.id !== id),
-    }));
-  }
-
   // Bound to `(submit)` on the <form>.
   protected async save(event: Event): Promise<void> {
     // Stop the browser's native full-page form post.
@@ -275,17 +266,15 @@ export class CustomerForm {
         email: value.email.trim(),
         nationality: value.nationality.trim() || null,
         addresses: value.addresses.map((address) => ({
-          ...address,
+          id: address.id,
           street: address.street.trim(),
           city: address.city.trim(),
           suburb: address.suburb.trim(),
           postalCode: address.postalCode.trim(),
-          countryCode: address.countryCode.trim(),
         })),
-        universities: value.universities.map((university) => ({
-          ...university,
-          name: university.name.trim(),
-        })),
+        universities: value.universities[0]?.name.trim()
+          ? [{ id: value.universities[0].id, name: value.universities[0].name.trim() }]
+          : [],
       };
       const current = this.currentCustomer();
       // Captured so the `afterSave` effect can tell whether this exact page

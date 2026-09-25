@@ -168,23 +168,6 @@
             <mat-error>{{ address.postalCode().errors()[0]?.message }}</mat-error>
           }
         </mat-form-field>
-        <mat-form-field>
-          <mat-label>Country code</mat-label>
-          <input
-            matInput
-            [formField]="address.countryCode"
-            [attr.aria-invalid]="
-              (attempted() || address.countryCode().touched()) && address.countryCode().invalid()
-                ? true
-                : null
-            "
-          />
-          @if (
-            (attempted() || address.countryCode().touched()) && address.countryCode().invalid()
-          ) {
-            <mat-error>{{ address.countryCode().errors()[0]?.message }}</mat-error>
-          }
-        </mat-form-field>
         <!--
           `type="button"` is important: a <button> inside a <form> defaults to
           type="submit", which would trigger `save()` on click.
@@ -203,37 +186,26 @@
     }
     <button mat-button type="button" (click)="addAddress()">Add address</button>
 
-    <h2>Universities attended (optional)</h2>
-    <!-- Same pattern as addresses; the list may be empty. -->
-    @for (university of customerForm.universities; track university().value().id; let i = $index) {
-      <fieldset>
-        <legend>University {{ i + 1 }}</legend>
-        <mat-form-field>
-          <mat-label>University name</mat-label>
-          <input
-            matInput
-            [formField]="university.name"
-            [attr.aria-invalid]="
-              (attempted() || university.name().touched()) && university.name().invalid()
-                ? true
-                : null
-            "
-          />
-          @if ((attempted() || university.name().touched()) && university.name().invalid()) {
-            <mat-error>{{ university.name().errors()[0]?.message }}</mat-error>
-          }
-        </mat-form-field>
-        <button
-          mat-button
-          type="button"
-          (click)="removeUniversity(university().value().id)"
-          [attr.aria-label]="'Remove university ' + (i + 1)"
-        >
-          Remove university
-        </button>
-      </fieldset>
-    }
-    <button mat-button type="button" (click)="addUniversity()">Add university</button>
+    <h2>University (optional)</h2>
+    <mat-form-field>
+      <mat-label>University name</mat-label>
+      <input
+        matInput
+        [formField]="customerForm.universities[0].name"
+        [attr.aria-invalid]="
+          (attempted() || customerForm.universities[0].name().touched()) &&
+          customerForm.universities[0].name().invalid()
+            ? true
+            : null
+        "
+      />
+      @if (
+        (attempted() || customerForm.universities[0].name().touched()) &&
+        customerForm.universities[0].name().invalid()
+      ) {
+        <mat-error>{{ customerForm.universities[0].name().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
 
     <div class="actions">
       <!-- The only type="submit" button in the form. Label doubles as a saving indicator. -->

@@ -146,13 +146,8 @@ export class Customers {
         customer.lastName,
         customer.email,
         customer.nationality ?? '',
-        ...customer.addresses.flatMap((address) => [
-          address.city,
-          address.suburb,
-          address.street,
-          address.countryCode,
-        ]),
-        ...customer.universities.map((university) => university.name),
+        ...customer.addresses.flatMap((address) => [address.city, address.suburb, address.street]),
+        customer.universities[0]?.name ?? '',
       ]
         .join(' ')
         .toLocaleLowerCase()
@@ -227,8 +222,8 @@ export class Customers {
 
   // Template helper. Methods called from templates are fine in Angular but
   // re-run on every change-detection pass, so keep them cheap.
-  protected universityNames(customer: Customer): string {
-    return customer.universities.map((university) => university.name).join(', ') || '—';
+  protected universityName(customer: Customer): string {
+    return customer.universities[0]?.name || '—';
   }
 
   // Bound to `(input)` on the search box. Angular does not have `v-model`

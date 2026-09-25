@@ -31,7 +31,6 @@ const customer: Customer = {
       city: 'Lagos',
       suburb: 'Yaba',
       postalCode: '101212',
-      countryCode: 'NG',
     },
   ],
   universities: [{ id: 'u1', name: 'University of Lagos' }],

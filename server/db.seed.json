@@ -13,22 +13,17 @@
           "street": "10 Maple Lane",
           "city": "Lagos",
           "suburb": "Yaba",
-          "postalCode": "101212",
-          "countryCode": "NG"
+          "postalCode": "101212"
         },
         {
           "id": "a2",
           "street": "42 Birch Road",
           "city": "Abuja",
           "suburb": "Wuse",
-          "postalCode": "900001",
-          "countryCode": "NG"
+          "postalCode": "900001"
         }
       ],
-      "universities": [
-        { "id": "u1", "name": "University of Lagos" },
-        { "id": "u2", "name": "University of Ibadan" }
-      ]
+      "universities": [{ "id": "u1", "name": "University of Lagos" }]
     },
     {
       "id": "c2",
@@ -43,8 +38,7 @@
           "street": "7 River Street",
           "city": "Melbourne",
           "suburb": "Richmond",
-          "postalCode": "3121",
-          "countryCode": "AU"
+          "postalCode": "3121"
         }
       ],
       "universities": []
@@ -62,8 +56,7 @@
           "street": "21 Garden Avenue",
           "city": "São Paulo",
           "suburb": "Pinheiros",
-          "postalCode": "05422-000",
-          "countryCode": "BR"
+          "postalCode": "05422-000"
         }
       ],
       "universities": [{ "id": "u3", "name": "University of São Paulo" }]

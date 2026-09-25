@@ -17,7 +17,6 @@ export interface Address {
   city: string;
   suburb: string;
   postalCode: string;
-  countryCode: string;
 }
 
 /** A university the customer attended. Free-text name for now. */
@@ -40,6 +39,7 @@ export interface CustomerDraft {
   email: string;
   nationality: string | null;
   addresses: Address[];
+  /** API keeps array format for existing records; new saves contain zero or one university. */
   universities: University[];
 }
 

@@ -10,10 +10,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { provideEffects } from '@ngrx/effects';
-import { provideState, provideStore } from '@ngrx/store';
+import { provideState, provideStore, Store } from '@ngrx/store';
 import { CustomerForm } from './customer-form';
-import { customerEffects, customerFeature } from './data-access/customer.store';
+import { customerActions, customerEffects, customerFeature } from './data-access/customer.store';
 import { CustomersApi, CustomerQuotesApi } from './data-access/customers-api';
 
 // Find the <input> that belongs to the <mat-label> containing `label`.
@@ -40,7 +41,10 @@ describe('Customer form', () => {
     await TestBed.configureTestingModule({
       imports: [CustomerForm],
       providers: [
-        provideRouter([{ path: 'customers/new', component: CustomerForm }]),
+        provideRouter([
+          { path: 'customers/new', component: CustomerForm },
+          { path: 'customers/:customerId/edit', component: CustomerForm },
+        ]),
         provideHttpClient(),
         provideHttpClientTesting(),
         provideStore(),
@@ -95,7 +99,6 @@ describe('Customer form', () => {
     type(root, 'Street', 'Maple Lane');
     type(root, 'City', 'Lagos');
     type(root, 'Postal code', '100001');
-    type(root, 'Country code', 'NG');
     [...root.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('Add address'))!
       .click();
@@ -124,11 +127,12 @@ describe('Customer form', () => {
     TestBed.inject(HttpTestingController).expectNone('/api/customers');
   });
 
-  it('does not submit invalid customer; sends multiple universities on valid create', async () => {
+  it('does not submit invalid customer; sends one university on valid create', async () => {
     const fixture = TestBed.createComponent(CustomerForm);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     const root = fixture.nativeElement as HTMLElement;
+    for (const field of root.querySelectorAll('input')) field.scrollIntoView = vi.fn();
     root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await fixture.whenStable();
     http.expectNone('/api/customers');
@@ -140,41 +144,99 @@ describe('Customer form', () => {
     type(root, 'Street', 'Maple Lane');
     type(root, 'City', 'Lagos');
     type(root, 'Postal code', '100001');
-    type(root, 'Country code', 'NG');
     root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await fixture.whenStable();
     http.expectNone('/api/customers');
     type(root, 'First name', 'Amina');
-    const addUniversity = [...root.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Add university'),
-    )!;
-    addUniversity.click();
-    fixture.detectChanges();
-    type(root, 'University name', 'University of Lagos');
-    addUniversity.click();
-    fixture.detectChanges();
-    const universityInputs = [...root.querySelectorAll<HTMLInputElement>('fieldset input')].filter(
-      (field) => field.getAttribute('aria-required') === 'true',
-    );
-    // Fill second university by its enclosing fieldset, independent of generated IDs.
-    const second = [...root.querySelectorAll('fieldset')].find((field) =>
-      field.querySelector('legend')?.textContent?.includes('University 2'),
-    )!;
-    const field = second.querySelector('input')!;
-    field.value = 'University of Ibadan';
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(universityInputs.length).toBeGreaterThan(0);
+    type(root, 'University name', '   ');
+    root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await fixture.whenStable();
+    http.expectNone('/api/customers');
+    expect(root.textContent).toContain('University name cannot be blank.');
+    type(root, 'University name', ' University of Lagos ');
+    expect(root.textContent).not.toContain('Add university');
     root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await fixture.whenStable();
     const request = http.expectOne('/api/customers');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body.universities.map((item: { name: string }) => item.name)).toEqual([
-      'University of Lagos',
-      'University of Ibadan',
+    expect(request.request.body.universities).toEqual([
+      { id: expect.any(String), name: 'University of Lagos' },
     ]);
-    expect(request.request.body.addresses).toHaveLength(1);
+    expect(request.request.body.addresses).toEqual([
+      {
+        id: expect.any(String),
+        street: 'Maple Lane',
+        city: 'Lagos',
+        suburb: '',
+        postalCode: '100001',
+      },
+    ]);
+    expect(root.textContent).not.toContain('Country code');
     expect(request.request.body.createdAt).toMatch(/^\d{4}-/);
     request.flush({ ...request.request.body, id: 'new-id' });
+    http.verify();
+  });
+
+  it('saves no university when optional field is empty', async () => {
+    const fixture = TestBed.createComponent(CustomerForm);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    type(root, 'First name', 'Amina');
+    type(root, 'Last name', 'Okafor');
+    type(root, 'Email', 'amina@example.test');
+    type(root, 'Street', 'Maple Lane');
+    type(root, 'City', 'Lagos');
+    type(root, 'Postal code', '100001');
+    root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    const request = http.expectOne('/api/customers');
+    expect(request.request.body.universities).toEqual([]);
+    request.flush({ ...request.request.body, id: 'new-id' });
+    http.verify();
+  });
+
+  it('drops legacy country and extra universities when editing', async () => {
+    const store = TestBed.inject(Store);
+    const legacyCustomer = {
+      id: 'c1',
+      createdAt: '2025-01-01',
+      firstName: 'Amina',
+      lastName: 'Okafor',
+      email: 'amina@example.test',
+      nationality: null,
+      addresses: [
+        {
+          id: 'a1',
+          street: 'Maple Lane',
+          city: 'Lagos',
+          suburb: '',
+          postalCode: '100001',
+          countryCode: 'NG',
+        },
+      ],
+      universities: [
+        { id: 'u1', name: 'University of Lagos' },
+        { id: 'u2', name: 'University of Ibadan' },
+      ],
+    };
+    store.dispatch(customerActions.getSucceeded({ customer: legacyCustomer }));
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/customers/c1/edit', CustomerForm);
+    const root = harness.routeNativeElement as HTMLElement;
+    expect(root.textContent).not.toContain('Country code');
+    expect(input(root, 'University name').value).toBe('University of Lagos');
+    expect(root.textContent).not.toContain('Add university');
+    root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await harness.fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    const request = http.expectOne('/api/customers/c1');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body.addresses).toEqual([
+      { id: 'a1', street: 'Maple Lane', city: 'Lagos', suburb: '', postalCode: '100001' },
+    ]);
+    expect(request.request.body.universities).toEqual([{ id: 'u1', name: 'University of Lagos' }]);
+    request.flush(request.request.body);
     http.verify();
   });
 });
