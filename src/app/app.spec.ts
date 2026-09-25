@@ -41,6 +41,27 @@ describe('App shell', () => {
     expect(router.url).toBe('/customers');
   });
 
+  it('shows a useful page for unknown URLs', async () => {
+    const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+    fixture.detectChanges();
+    await router.navigateByUrl('/missing');
+    await fixture.whenStable();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('main h1')?.textContent).toBe('Page not found');
+    expect(root.querySelector('main a[href="/customers"]')?.textContent).toContain('Customers');
+    expect(document.title).toBe('Page not found — Genesys');
+
+    await router.navigateByUrl('/customers/missing');
+    await fixture.whenStable();
+    expect(root.querySelector('main h1')?.textContent).toBe('Page not found');
+    expect(root.querySelector('nav a[href="/customers"]')?.hasAttribute('aria-current')).toBe(
+      false,
+    );
+    expect(root.querySelector('nav a[href="/quotes"]')?.hasAttribute('aria-current')).toBe(false);
+  });
+
   it('updates active link, page title and heading focus on navigation', async () => {
     const fixture = TestBed.createComponent(App);
     const router = TestBed.inject(Router);
@@ -68,6 +89,8 @@ describe('App shell', () => {
     const focus = vi.spyOn(heading, 'focus');
     await router.navigateByUrl('/quotes?customerId=123');
     await fixture.whenStable();
+    expect(quotes.getAttribute('aria-current')).toBe('page');
+    expect(quotes.classList.contains('active-link')).toBe(true);
     expect(document.activeElement).toBe(heading);
     expect(focus).not.toHaveBeenCalled();
   });

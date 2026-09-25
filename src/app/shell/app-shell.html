@@ -8,6 +8,7 @@
         mat-button
         routerLink="/customers"
         routerLinkActive="active-link"
+        [routerLinkActiveOptions]="navLinkMatchOptions"
         ariaCurrentWhenActive="page"
       >
         Customers
@@ -16,6 +17,7 @@
         mat-button
         routerLink="/quotes"
         routerLinkActive="active-link"
+        [routerLinkActiveOptions]="navLinkMatchOptions"
         ariaCurrentWhenActive="page"
       >
         Quotes

@@ -1,9 +1,19 @@
 import { Routes } from '@angular/router';
-import { Customers } from './pages/customers/customers';
-import { Quotes } from './pages/quotes/quotes';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'customers', pathMatch: 'full' },
-  { path: 'customers', component: Customers, title: 'Customers — Genesys' },
-  { path: 'quotes', component: Quotes, title: 'Quotes — Genesys' },
+  {
+    path: 'customers',
+    loadChildren: () =>
+      import('./pages/customers/customer.routes').then((file) => file.customerRoutes),
+  },
+  {
+    path: 'quotes',
+    loadChildren: () => import('./pages/quotes/quote.routes').then((file) => file.quoteRoutes),
+  },
+  {
+    path: '**',
+    loadComponent: () => import('./pages/not-found/not-found').then((page) => page.NotFound),
+    title: 'Page not found — Genesys',
+  },
 ];
