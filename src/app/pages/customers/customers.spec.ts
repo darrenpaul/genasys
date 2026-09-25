@@ -28,7 +28,7 @@ const rows: Customer[] = [
     firstName: 'Amina',
     lastName: 'Okafor',
     email: 'amina@example.test',
-    nationality: 'Nigerian',
+    nationality: { code: 'NG', name: 'Nigeria' },
     createdAt: '2025-01-01',
     addresses: [
       {
@@ -39,7 +39,7 @@ const rows: Customer[] = [
         postalCode: '100001',
       },
     ],
-    universities: [{ id: 'u1', name: 'University of Lagos' }],
+    universities: [{ id: 'u1', name: 'University of Lagos', website: null }],
   },
   {
     id: 'c2',

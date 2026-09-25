@@ -104,7 +104,9 @@
         </ng-container>
         <ng-container matColumnDef="nationality">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Nationality</th>
-          <td mat-cell *matCellDef="let customer">{{ customer.nationality || 'Not provided' }}</td>
+          <td mat-cell *matCellDef="let customer">
+            {{ customer.nationality?.name || 'Not provided' }}
+          </td>
         </ng-container>
         <ng-container matColumnDef="cities">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>City</th>

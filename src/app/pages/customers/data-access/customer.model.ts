@@ -19,25 +19,37 @@ export interface Address {
   postalCode: string;
 }
 
-/** A university the customer attended. Free-text name for now. */
+/**
+ * Explicitly selected country, never an unconfirmed prediction.
+ *
+ * Stored as `{ code, name }` rather than a plain string so the university
+ * search can key off the ISO code while the list page displays the name.
+ */
+export interface ConfirmedCountry {
+  code: string;
+  name: string;
+}
+
+/** University selected from lookup results. */
 export interface University {
   /** Same purpose as `Address.id`: a stable key for the `@for` loop. */
   id: string;
   name: string;
+  /** First usable http(s) link from the lookup provider, or null if none was valid. */
+  website: string | null;
 }
 
 /**
  * Everything the user can type into the form, and exactly what we POST to the
  * API when creating a customer.
  *
- * `nationality` is `string | null` rather than an optional string so the API
- * stores "not provided" explicitly instead of as an empty string.
+ * Nationality must be explicitly confirmed. University is optional.
  */
 export interface CustomerDraft {
   firstName: string;
   lastName: string;
   email: string;
-  nationality: string | null;
+  nationality: ConfirmedCountry | null;
   addresses: Address[];
   /** API keeps array format for existing records; new saves contain zero or one university. */
   universities: University[];

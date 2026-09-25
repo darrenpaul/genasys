@@ -33,7 +33,7 @@ const customer: Customer = {
       postalCode: '101212',
     },
   ],
-  universities: [{ id: 'u1', name: 'University of Lagos' }],
+  universities: [{ id: 'u1', name: 'University of Lagos', website: null }],
 };
 
 describe('Customer state', () => {

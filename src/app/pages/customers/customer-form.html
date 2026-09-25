@@ -12,6 +12,12 @@
     show the error when the field is invalid AND (the user has touched it OR
     they have tried to submit). This avoids shouting "required" at an empty
     form the user has not started filling in yet.
+
+  Two inputs below are NOT `[formField]` bindings: the country search and the
+  university search. They are plain inputs wired the "manual v-model" way,
+  `[value]` in and `(input)` out, because what the user types there is a
+  search query, not the value we save. The confirmed choice lands in the
+  form model only when an autocomplete option is selected.
 -->
 
 <h1>{{ editId() ? 'Edit customer' : 'Add customer' }}</h1>
@@ -63,11 +69,17 @@
         <mat-error>{{ customerForm.firstName().errors()[0]?.message }}</mat-error>
       }
     </mat-form-field>
+    <!--
+      Last name has an extra `(input)` listener alongside `[formField]`, like
+      putting `@input` next to `v-model`. It kicks off the surname ->
+      nationality suggestions straight away.
+    -->
     <mat-form-field>
       <mat-label>Last name</mat-label>
       <input
         matInput
         [formField]="customerForm.lastName"
+        (input)="onSurnameInput($event)"
         autocomplete="family-name"
         [attr.aria-invalid]="
           (attempted() || customerForm.lastName().touched()) && customerForm.lastName().invalid()
@@ -98,10 +110,173 @@
         <mat-error>{{ customerForm.email().errors()[0]?.message }}</mat-error>
       }
     </mat-form-field>
-    <!-- Optional field: no rules in the schema, so no error handling needed. -->
-    <mat-form-field>
-      <mat-label>Nationality (optional)</mat-label>
-      <input matInput [formField]="customerForm.nationality" />
+    <!--
+      Country picker (required).
+
+      `subscriptSizing="dynamic"` lets the hint/error area below the input
+      grow to fit the status messages instead of reserving one fixed line.
+
+      `#countryInput` is a template reference variable, Angular's `ref="..."`.
+      It is read by `viewChild('countryInput')` in the class for focus
+      management. `#countryAuto="matAutocomplete"` is the same mechanism but
+      exports the autocomplete *directive* instance rather than the DOM node,
+      so `[matAutocomplete]="countryAuto"` can link the input to its panel.
+
+      `aria-required` and `aria-invalid` are set by hand here because this
+      input is not a Signal Forms field; see the note in customer-form.ts.
+    -->
+    <mat-form-field subscriptSizing="dynamic">
+      <mat-label>Search all countries</mat-label>
+      <input
+        #countryInput
+        matInput
+        aria-label="Search all countries"
+        aria-required="true"
+        [attr.aria-invalid]="attempted() && !model().nationality ? true : null"
+        [value]="countryQuery()"
+        (input)="onCountryInput($event)"
+        [matAutocomplete]="countryAuto"
+      />
+      <!--
+        Two option groups: surname-based suggestions first, then everything
+        else. `[value]` on <mat-option> is what `(optionSelected)` receives.
+        Here it is the country name so the input shows readable text after a
+        pick. `aria-hidden` on the flag emoji stops screen readers reading out
+        a description of the flag before every country name.
+      -->
+      <mat-autocomplete #countryAuto="matAutocomplete" (optionSelected)="chooseCountry($event)">
+        @if (matchingPredictions().length) {
+          <mat-optgroup label="Suggested countries">
+            @for (prediction of matchingPredictions(); track prediction.country.code) {
+              <mat-option [value]="prediction.country.name">
+                <span aria-hidden="true">{{ prediction.country.flag }}</span>
+                {{ prediction.country.name }}
+              </mat-option>
+            }
+          </mat-optgroup>
+        }
+        @if (matchingCountries().length) {
+          <mat-optgroup label="All countries">
+            @for (country of matchingCountries(); track country.code) {
+              <mat-option [value]="country.name">
+                <span aria-hidden="true">{{ country.flag }}</span> {{ country.name }}
+              </mat-option>
+            }
+          </mat-optgroup>
+        }
+      </mat-autocomplete>
+      <!--
+        Status line for the surname lookup. `@switch` is a `v-if`/`v-else-if`
+        chain over one value; the cases match the `predictionState` union in
+        the class. `role="status"` is polite (announced when the screen reader
+        is idle). `role="alert"` interrupts, so it is reserved for failures.
+        `type="button"` on the Retry keeps it from submitting the form.
+      -->
+      <mat-hint>
+        @switch (predictionState()) {
+          @case ('waiting') {
+            <span role="status">Waiting for surname…</span>
+          }
+          @case ('loading') {
+            <span role="status">Finding suggestions…</span>
+          }
+          @case ('empty') {
+            <span>No suggestions found. Search all countries below.</span>
+          }
+          @case ('error') {
+            <span role="alert">Suggestions unavailable. Search all countries below.</span>
+            <button mat-button type="button" (click)="retryNationality()">Retry suggestions</button>
+          }
+          @case ('limited') {
+            <span role="alert">Prediction limit reached. Search all countries below.</span>
+          }
+        }
+      </mat-hint>
+    </mat-form-field>
+    <!--
+      The confirmed country is shown separately from the search text so it
+      is unambiguous which one will be saved. The "Choose a country." error
+      only appears after a submit attempt, matching the other required fields.
+    -->
+    @if (model().nationality) {
+      <p>Confirmed: {{ model().nationality?.name }}</p>
+    }
+    @if (attempted() && !model().nationality) {
+      <p role="alert">Choose a country.</p>
+    }
+    <!-- Non-blocking: the bundled country list still works if the live refresh fails. -->
+    @if (countryWarning()) {
+      <p role="status">Country refresh unavailable; full local list remains available.</p>
+      <button mat-button type="button" (click)="retryCountries()">Retry country refresh</button>
+    }
+    <h2>University (optional)</h2>
+    <!--
+      University search. Disabled until a country is confirmed because the
+      provider searches within one country. Unlike the country picker, each
+      option's `[value]` is the whole option object, so `[displayWith]` tells
+      Material how to print the chosen object as input text.
+    -->
+    <mat-form-field subscriptSizing="dynamic">
+      <mat-label>University name</mat-label>
+      <input
+        #universityInput
+        matInput
+        [disabled]="!model().nationality"
+        [value]="universityQuery()"
+        (input)="onUniversityInput($event)"
+        [matAutocomplete]="universityAuto"
+      />
+      <mat-autocomplete
+        #universityAuto="matAutocomplete"
+        [displayWith]="displayUniversity"
+        (optionSelected)="chooseUniversity($event)"
+      >
+        <!-- The provider gives no stable id, so the `:key` is name + website. -->
+        @for (option of universities(); track option.name + option.website) {
+          <mat-option [value]="option"
+            >{{ option.name }}
+            @if (option.website) {
+              — {{ option.website }}
+            }
+          </mat-option>
+        }
+      </mat-autocomplete>
+      <!--
+        Clear button, rendered inside the field's right edge by `matIconSuffix`.
+        `@if` removes it entirely when nothing is selected, so it is never a
+        dead tab stop. The visible "×" is hidden from assistive tech and the
+        `aria-label` provides the real name.
+      -->
+      @if (model().universities[0]?.name) {
+        <button
+          mat-icon-button
+          matIconSuffix
+          type="button"
+          aria-label="Clear university"
+          (click)="clearUniversity()"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      }
+      <mat-hint>
+        @switch (universityState()) {
+          @case ('waiting') {
+            <span role="status">Waiting for search…</span>
+          }
+          @case ('loading') {
+            <span role="status">Searching universities…</span>
+          }
+          @case ('empty') {
+            <span>No universities found.</span>
+          }
+          @case ('error') {
+            <span role="alert">University search unavailable.</span>
+            <button mat-button type="button" (click)="retrySearch()">
+              Retry university search
+            </button>
+          }
+        }
+      </mat-hint>
     </mat-form-field>
 
     <h2>Addresses</h2>
@@ -185,27 +360,6 @@
       </fieldset>
     }
     <button mat-button type="button" (click)="addAddress()">Add address</button>
-
-    <h2>University (optional)</h2>
-    <mat-form-field>
-      <mat-label>University name</mat-label>
-      <input
-        matInput
-        [formField]="customerForm.universities[0].name"
-        [attr.aria-invalid]="
-          (attempted() || customerForm.universities[0].name().touched()) &&
-          customerForm.universities[0].name().invalid()
-            ? true
-            : null
-        "
-      />
-      @if (
-        (attempted() || customerForm.universities[0].name().touched()) &&
-        customerForm.universities[0].name().invalid()
-      ) {
-        <mat-error>{{ customerForm.universities[0].name().errors()[0]?.message }}</mat-error>
-      }
-    </mat-form-field>
 
     <div class="actions">
       <!-- The only type="submit" button in the form. Label doubles as a saving indicator. -->

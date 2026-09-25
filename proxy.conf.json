@@ -1,4 +1,10 @@
 {
+  "/external/universities": {
+    "target": "http://universities.hipolabs.com",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": { "/external/universities": "/search" }
+  },
   "/api/**": {
     "target": "http://127.0.0.1:3000",
     "secure": false,

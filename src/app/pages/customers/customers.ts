@@ -145,7 +145,7 @@ export class Customers {
         customer.firstName,
         customer.lastName,
         customer.email,
-        customer.nationality ?? '',
+        customer.nationality?.name ?? '',
         ...customer.addresses.flatMap((address) => [address.city, address.suburb, address.street]),
         customer.universities[0]?.name ?? '',
       ]
@@ -165,7 +165,7 @@ export class Customers {
         case 'universities':
           return customer.universities[0]?.name.toLocaleLowerCase() ?? '';
         case 'nationality':
-          return customer.nationality?.toLocaleLowerCase() ?? '';
+          return customer.nationality?.name.toLocaleLowerCase() ?? '';
         case 'email':
           return customer.email.toLocaleLowerCase();
         default:

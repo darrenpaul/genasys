@@ -5,7 +5,10 @@
       "firstName": "Amina",
       "lastName": "Okafor",
       "email": "amina@example.test",
-      "nationality": "Nigerian",
+      "nationality": {
+        "code": "NG",
+        "name": "Nigeria"
+      },
       "createdAt": "2025-01-15T12:00:00.000Z",
       "addresses": [
         {
@@ -23,14 +26,23 @@
           "postalCode": "900001"
         }
       ],
-      "universities": [{ "id": "u1", "name": "University of Lagos" }]
+      "universities": [
+        {
+          "id": "u1",
+          "name": "University of Lagos",
+          "website": "https://unilag.edu.ng/"
+        }
+      ]
     },
     {
       "id": "c2",
       "firstName": "Maya",
       "lastName": "Chen",
       "email": "maya@example.test",
-      "nationality": null,
+      "nationality": {
+        "code": "AU",
+        "name": "Australia"
+      },
       "createdAt": "2025-02-10T12:00:00.000Z",
       "addresses": [
         {
@@ -48,7 +60,10 @@
       "firstName": "Leo",
       "lastName": "Silva",
       "email": "leo@example.test",
-      "nationality": "Brazilian",
+      "nationality": {
+        "code": "BR",
+        "name": "Brazil"
+      },
       "createdAt": "2025-03-20T12:00:00.000Z",
       "addresses": [
         {
@@ -59,7 +74,13 @@
           "postalCode": "05422-000"
         }
       ],
-      "universities": [{ "id": "u3", "name": "University of São Paulo" }]
+      "universities": [
+        {
+          "id": "u3",
+          "name": "University of São Paulo",
+          "website": "https://www5.usp.br/"
+        }
+      ]
     }
   ],
   "quotes": [
