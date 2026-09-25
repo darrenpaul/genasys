@@ -1,6 +1,6 @@
 # Genesys
 
-Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Feature pages, API services, and realistic seed records belong to later tutorial chapters; this is the tooling baseline.
+Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Accessible application shell and empty Customers/Quotes pages are available. Customer and quote workflows, API services, and realistic seed records belong to later tutorial chapters.
 
 ## Runtime and installed versions
 

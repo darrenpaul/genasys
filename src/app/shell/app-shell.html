@@ -1,0 +1,29 @@
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<header>
+  <mat-toolbar>
+    <span>Genesys</span>
+    <nav aria-label="Primary navigation">
+      <a
+        mat-button
+        routerLink="/customers"
+        routerLinkActive="active-link"
+        ariaCurrentWhenActive="page"
+      >
+        Customers
+      </a>
+      <a
+        mat-button
+        routerLink="/quotes"
+        routerLinkActive="active-link"
+        ariaCurrentWhenActive="page"
+      >
+        Quotes
+      </a>
+    </nav>
+  </mat-toolbar>
+</header>
+
+<main id="main-content" tabindex="-1">
+  <router-outlet (activate)="focusPageHeading()" />
+</main>
