@@ -28,8 +28,8 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { provideEffects } from '@ngrx/effects';
 import { provideState, provideStore } from '@ngrx/store';
 import { QuoteForm } from './quote-form';
-import { quoteEffects, quoteFeature } from './data-access/quote.store';
-import { QuoteCustomersApi, QuotesApi } from './data-access/quotes-api';
+import { quoteEffects, quoteFeature } from '../data-access/quote.store';
+import { QuoteCustomersApi, QuotesApi } from '../data-access/quotes-api';
 
 const customer = {
   id: 'c1',
@@ -62,6 +62,47 @@ describe('Quote form', () => {
     }).compileComponents();
   });
 
+  it('places Cancel before Save in toolbar and submits through external button', async () => {
+    await TestBed.inject(Router).navigateByUrl('/quotes/new?customerId=c1&status=approved');
+    const fixture = TestBed.createComponent(QuoteForm);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const root = fixture.nativeElement as HTMLElement;
+    const toolbar = root.querySelector('app-page-toolbar')!;
+    expect(toolbar.querySelector('button[type="submit"]')).toBeNull();
+    http.expectOne('/api/customers').flush([customer]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const cancel = toolbar.querySelector<HTMLAnchorElement>(
+      'a[href="/quotes?customerId=c1&status=approved"]',
+    )!;
+    const save = toolbar.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect([...toolbar.querySelector('.toolbar-actions')!.children]).toEqual([cancel, save]);
+    expect(save.form).toBe(root.querySelector('form#quote-form'));
+    expect(getComputedStyle(save.form!).maxWidth).toBe('832px');
+    expect(root.querySelector('form button[type="submit"]')).toBeNull();
+    expect(save.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe('save');
+    expect(save.querySelector('.mdc-button__label')?.textContent?.trim()).toBe('Save');
+    expect(getComputedStyle(save).getPropertyValue('--mat-button-filled-container-color')).toBe(
+      '#007f7e',
+    );
+    expect(getComputedStyle(cancel).getPropertyValue('--mat-button-text-label-text-color')).toBe(
+      '#fff',
+    );
+    save.click();
+    await fixture.whenStable();
+    expect(root.textContent).toContain('Enter an amount above zero');
+    const amount = root.querySelector('#quote-amount')!;
+    expect(amount.getAttribute('aria-invalid')).toBe('true');
+    expect(amount.getAttribute('aria-describedby')).toBe('quote-amount-error');
+    const amountError = root.querySelector('.field-heading #quote-amount-error')!;
+    expect(amountError.textContent).toContain('Enter an amount above zero');
+    expect(amountError.classList.contains('field-feedback')).toBe(true);
+    http.expectNone('/api/quotes');
+    http.verify();
+  });
+
   it('creates quote with preselected customer and exact euro cents', async () => {
     await TestBed.inject(Router).navigateByUrl('/quotes/new?customerId=c1');
     const fixture = TestBed.createComponent(QuoteForm);
@@ -71,8 +112,12 @@ describe('Quote form', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('mat-select')?.textContent).toContain('Amina Okafor');
-    const input = root.querySelector<HTMLInputElement>('input')!;
+    const customerInput = root.querySelector<HTMLInputElement>('#quote-customer')!;
+    expect(customerInput.value).toBe('Amina Okafor');
+    expect(customerInput.labels?.[0]?.textContent).toBe('Customer');
+    const input = root.querySelector<HTMLInputElement>('#quote-amount')!;
+    expect(input.labels?.[0]?.textContent).toBe('Amount (EUR)');
+    expect(input.placeholder).toBe('e.g. 100.00');
     input.value = '10.01';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -109,8 +154,8 @@ describe('Quote form', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('mat-select')?.textContent).toContain('Maya');
-    const input = root.querySelector<HTMLInputElement>('input')!;
+    expect(root.querySelector<HTMLInputElement>('#quote-customer')?.value).toBe('Maya Okafor');
+    const input = root.querySelector<HTMLInputElement>('#quote-amount')!;
     input.value = '10';
     input.dispatchEvent(new Event('input'));
     root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
@@ -121,25 +166,46 @@ describe('Quote form', () => {
     http.verify();
   });
 
-  // Material's select opens its options in the overlay, so `mat-option` is
-  // looked up on `document`. The second `mat-select` on the page is Status.
-  it('lets user select customer and status when creating from unfiltered list', async () => {
+  // The searchable selects open their options in the CDK overlay, so
+  // `mat-option` is looked up on `document`. Typing filters the list; only the
+  // open panel's options exist in the DOM at any time.
+  it('lets user search for customer and status when creating from unfiltered list', async () => {
     await TestBed.inject(Router).navigateByUrl('/quotes/new');
     const fixture = TestBed.createComponent(QuoteForm);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne('/api/customers').flush([customer]);
+    http
+      .expectOne('/api/customers')
+      .flush([
+        { ...customer, id: 'c3', firstName: 'Zara' },
+        { ...customer, id: 'c2', firstName: 'Maya' },
+        customer,
+      ]);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    root.querySelector<HTMLElement>('mat-select')!.click();
+    const customerInput = root.querySelector<HTMLInputElement>('#quote-customer')!;
+    // Options are listed by name regardless of the order the API returned them.
+    customerInput.focus();
     fixture.detectChanges();
-    document.querySelector<HTMLElement>('mat-option')!.click();
+    expect(
+      [...document.querySelectorAll<HTMLElement>('mat-option')].map((o) => o.textContent?.trim()),
+    ).toEqual(['Amina Okafor', 'Maya Okafor', 'Zara Okafor']);
+    customerInput.value = 'ami';
+    customerInput.dispatchEvent(new Event('input', { bubbles: true }));
     fixture.detectChanges();
-    const input = root.querySelector<HTMLInputElement>('input')!;
+    const customerOptions = [...document.querySelectorAll<HTMLElement>('mat-option')];
+    expect(customerOptions.map((option) => option.textContent?.trim())).toEqual(['Amina Okafor']);
+    customerOptions[0].click();
+    fixture.detectChanges();
+    expect(customerInput.value).toBe('Amina Okafor');
+    const input = root.querySelector<HTMLInputElement>('#quote-amount')!;
     input.value = '20';
     input.dispatchEvent(new Event('input'));
-    root.querySelectorAll<HTMLElement>('mat-select')[1].click();
+    const statusInput = root.querySelector<HTMLInputElement>('#quote-status')!;
+    statusInput.focus();
+    statusInput.value = 'appr';
+    statusInput.dispatchEvent(new Event('input', { bubbles: true }));
     fixture.detectChanges();
     [...document.querySelectorAll<HTMLElement>('mat-option')]
       .find((option) => option.textContent?.trim() === 'approved')!
@@ -171,8 +237,8 @@ describe('Quote form', () => {
     });
     harness.detectChanges();
     const root = harness.routeNativeElement as HTMLElement;
-    expect(root.querySelector<HTMLInputElement>('input')?.value).toBe('10.01');
-    const input = root.querySelector<HTMLInputElement>('input')!;
+    expect(root.querySelector<HTMLInputElement>('#quote-amount')?.value).toBe('10.01');
+    const input = root.querySelector<HTMLInputElement>('#quote-amount')!;
     input.value = '12.50';
     input.dispatchEvent(new Event('input'));
     root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
@@ -205,7 +271,8 @@ describe('Quote form', () => {
     });
     harness.detectChanges();
     expect(
-      (harness.routeNativeElement as HTMLElement).querySelector<HTMLInputElement>('input')?.value,
+      (harness.routeNativeElement as HTMLElement).querySelector<HTMLInputElement>('#quote-amount')
+        ?.value,
     ).toBe('10.01');
     await harness.navigateByUrl('/quotes/q2/edit', QuoteForm);
     http.expectOne('/api/quotes/q2').flush({
@@ -217,9 +284,60 @@ describe('Quote form', () => {
     });
     harness.detectChanges();
     expect(
-      (harness.routeNativeElement as HTMLElement).querySelector<HTMLInputElement>('input')?.value,
+      (harness.routeNativeElement as HTMLElement).querySelector<HTMLInputElement>('#quote-amount')
+        ?.value,
     ).toBe('30.00');
     http.verify();
+  });
+
+  it('clears invalid customer error when selecting an option without typing', async () => {
+    await TestBed.inject(Router).navigateByUrl('/quotes/new?customerId=missing');
+    const fixture = TestBed.createComponent(QuoteForm);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/customers').flush([customer]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+    const customerInput = root.querySelector<HTMLInputElement>('#quote-customer')!;
+    expect(root.querySelector('#quote-customer-error')?.textContent).toContain(
+      'Select an existing customer.',
+    );
+    customerInput.focus();
+    fixture.detectChanges();
+    [...document.querySelectorAll<HTMLElement>('mat-option')]
+      .find((option) => option.textContent?.includes('Amina Okafor'))!
+      .click();
+    fixture.detectChanges();
+    expect(customerInput.value).toBe('Amina Okafor');
+    expect(root.querySelector('#quote-customer-error')).toBeNull();
+    http.expectNone('/api/quotes');
+  });
+
+  it('clears amount error as soon as amount is corrected', async () => {
+    await TestBed.inject(Router).navigateByUrl('/quotes/new?customerId=c1');
+    const fixture = TestBed.createComponent(QuoteForm);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/customers').flush([customer]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const amount = root.querySelector<HTMLInputElement>('#quote-amount')!;
+    amount.value = '10.001';
+    amount.dispatchEvent(new Event('input', { bubbles: true }));
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+    expect(amount.getAttribute('aria-invalid')).toBe('true');
+
+    amount.value = '10.01';
+    amount.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(root.querySelector('#quote-amount-error')).toBeNull();
+    expect(amount.getAttribute('aria-invalid')).not.toBe('true');
+    http.expectNone('/api/quotes');
   });
 
   it('rejects extra decimal precision before making API request', async () => {
@@ -231,7 +349,7 @@ describe('Quote form', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const input = root.querySelector<HTMLInputElement>('input')!;
+    const input = root.querySelector<HTMLInputElement>('#quote-amount')!;
     input.value = '10.001';
     input.dispatchEvent(new Event('input'));
     root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));

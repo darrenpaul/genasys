@@ -1,0 +1,98 @@
+<!--
+  Template for the add/edit quote form (the class is in quote-form.ts).
+
+  Signal Forms in the template:
+
+    [formField]="quoteForm.amount"   binds this control to that field, both
+                                     directions, like v-model. It also marks
+                                     the field touched on blur.
+    quoteForm.amount()               the field's state object. Note the parens:
+                                     `quoteForm.amount` is the field, calling it
+                                     gives you `touched()`, `invalid()`,
+                                     `errors()`, `value()`.
+
+  Errors are shown once a field was touched OR a save was attempted, so a user
+  who submits an empty form sees every problem at once.
+
+  `[attr.aria-invalid]` is an attribute binding (see quotes.html for why the
+  `attr.` prefix is needed). Binding `null` removes the attribute entirely,
+  which is what assistive tech expects for a valid field. The class uses the
+  `aria-invalid="true"` attribute to find the first bad control and focus it.
+-->
+<app-page-toolbar [title]="editId() ? 'Edit quote' : 'Add quote'">
+  <div class="toolbar-actions">
+    <a
+      mat-button
+      routerLink="/quotes"
+      [queryParams]="{ customerId: contextId(), status: contextStatus() }"
+      >Cancel</a
+    >
+    @if (
+      customersStatus() !== 'loading' &&
+      customersStatus() !== 'error' &&
+      (!editId() || currentQuote())
+    ) {
+      <button mat-flat-button type="submit" form="quote-form" [disabled]="saving() === 'saving'">
+        <mat-icon fontSet="material-symbols-outlined" aria-hidden="true">save</mat-icon>
+        {{ saving() === 'saving' ? 'Saving…' : 'Save' }}
+      </button>
+    }
+  </div>
+</app-page-toolbar>
+<div class="page-content">
+  <!-- Three states: still loading references or the quote, failed, ready. In
+     edit mode the form is not shown until the quote is in hand, so the user
+     never types over a half-populated form. -->
+  @if (customersStatus() === 'loading' || (editId() && !currentQuote() && status() !== 'error')) {
+    <p role="status">Loading quote details…</p>
+  } @else if (customersStatus() === 'error' || (editId() && !currentQuote())) {
+    <p role="alert">{{ customersError() || error() || 'Quote not found.' }}</p>
+    <button mat-button (click)="retry()">Retry</button>
+  } @else {
+    @if (error() || customersError()) {
+      <p role="alert">{{ error() || customersError() }}</p>
+    }
+    <!-- `novalidate` switches off the browser's own validation bubbles so the
+       form's messages are the only ones the user sees. `#formElement` is the
+       template ref the class reads with viewChild(). -->
+    <form id="quote-form" #formElement (submit)="save($event)" novalidate>
+      <!-- `externalError` surfaces the business check the schema does not
+           know about: the chosen customer must exist in the loaded list. -->
+      <app-select-field
+        id="quote-customer"
+        label="Customer"
+        placeholder="Search customers"
+        [options]="customerOptions()"
+        [field]="quoteForm.customerId"
+        [attempted]="attempted()"
+        [externalError]="customerError()"
+        (input)="customerError.set('')"
+        (selectionChange)="customerError.set('')"
+      />
+      <!-- `inputmode="decimal"` brings up a numeric keypad on phones while
+           keeping the value a string, so leading zeros and "10." survive.
+           `externalError` surfaces the business-rule amount check from save(). -->
+      <app-text-field
+        id="quote-amount"
+        label="Amount (EUR)"
+        placeholder="e.g. 100.00"
+        inputmode="decimal"
+        [field]="quoteForm.amount"
+        [attempted]="attempted()"
+        [externalError]="amountError()"
+        (input)="amountError.set('')"
+      />
+      <app-select-field
+        id="quote-status"
+        label="Status"
+        placeholder="Search statuses"
+        [options]="statusOptions"
+        [field]="quoteForm.status"
+        [attempted]="attempted()"
+        [externalError]="statusError()"
+        (input)="statusError.set('')"
+        (selectionChange)="statusError.set('')"
+      />
+    </form>
+  }
+</div>

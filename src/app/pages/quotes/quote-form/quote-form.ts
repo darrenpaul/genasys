@@ -4,16 +4,16 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  computed,
   inject,
   signal,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormField, form, pattern, required, submit } from '@angular/forms/signals';
+import { form, pattern, required, submit } from '@angular/forms/signals';
 import { MatButton } from '@angular/material/button';
-import { MatFormField, MatLabel, MatError } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
-import { MatSelect, MatOption } from '@angular/material/select';
+import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { distinctUntilChanged, filter, map, switchMap, take } from 'rxjs';
@@ -25,8 +25,11 @@ import {
   isQuoteStatus,
   parseEuroCents,
   quoteStatuses,
-} from './data-access/quote.model';
-import { quoteActions, quoteFeature, selectQuote } from './data-access/quote.store';
+} from '../data-access/quote.model';
+import { quoteActions, quoteFeature, selectQuote } from '../data-access/quote.store';
+import { PageToolbar } from '../../../shared/page-toolbar/page-toolbar';
+import { SelectField } from '../../../shared/select-field/select-field';
+import { TextField } from '../../../shared/text-field/text-field';
 
 // The form's own data shape. All three are strings because that is what the
 // inputs produce; conversion to `QuoteDraft` (cents, typed status) happens in
@@ -54,29 +57,23 @@ interface QuoteFormModel {
 // Validation state is derived, so there is no "validate()" call to remember.
 @Component({
   selector: 'app-quote-form',
-  imports: [
-    FormField,
-    MatButton,
-    MatFormField,
-    MatLabel,
-    MatError,
-    MatInput,
-    MatSelect,
-    MatOption,
-    RouterLink,
-  ],
+  imports: [MatButton, MatIcon, RouterLink, PageToolbar, SelectField, TextField],
   templateUrl: './quote-form.html',
+  providers: [
+    { provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: { subscriptSizing: 'dynamic' } },
+  ],
   styles: `
     form {
-      max-width: 32rem;
+      max-width: 52rem;
     }
-    mat-form-field {
-      display: block;
-    }
-    .actions {
+    .toolbar-actions {
       display: flex;
+      align-items: center;
       gap: 1rem;
-      margin-block: 1rem;
+    }
+    .toolbar-actions a {
+      --mat-button-text-label-text-color: #fff;
+      --mat-button-text-state-layer-color: #fff;
     }
   `,
 })
@@ -91,7 +88,11 @@ export class QuoteForm {
   // The `#formElement` ref, used to find the first invalid control to focus.
   private readonly formElement = viewChild<ElementRef<HTMLFormElement>>('formElement');
 
-  protected readonly statuses = quoteStatuses;
+  // Choices for the Status <app-select-field>; the raw status doubles as label.
+  protected readonly statusOptions = quoteStatuses.map((status) => ({
+    value: status,
+    label: status,
+  }));
   // The form data. `amount` is kept as the raw text the user typed and only
   // converted to cents on save, so partial input like "10." is not mangled
   // while typing.
@@ -120,6 +121,17 @@ export class QuoteForm {
   // The quote being edited, once loaded. Its id and createdAt are preserved.
   protected readonly currentQuote = signal<Quote | null>(null);
   protected readonly customers = this.store.selectSignal(quoteFeature.selectCustomers);
+  // Choices for the Customer <app-select-field>, derived from the loaded list
+  // and sorted by the displayed name. `localeCompare` handles accents
+  // (Müller, São) the way a person would; a plain `<` would sort them last.
+  protected readonly customerOptions = computed(() =>
+    this.customers()
+      .map((customer) => ({
+        value: customer.id,
+        label: `${customer.firstName} ${customer.lastName}`,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+  );
   protected readonly customersStatus = this.store.selectSignal(quoteFeature.selectCustomersStatus);
   protected readonly status = this.store.selectSignal(quoteFeature.selectLoadStatus);
   protected readonly saving = this.store.selectSignal(quoteFeature.selectSaveStatus);
@@ -132,9 +144,10 @@ export class QuoteForm {
   protected readonly contextId = signal<string | null>(null);
   protected readonly contextStatus = signal<QuoteStatus | null>(null);
   // Business-rule errors the schema cannot express: the customer must exist in
-  // the loaded list, the status must be a known value. Shown in `role="alert"`
-  // paragraphs above the form.
-  protected readonly selectionError = signal('');
+  // the loaded list, the status must be a known value, the amount must parse
+  // to cents. Each is passed to its field as `externalError`.
+  protected readonly customerError = signal('');
+  protected readonly statusError = signal('');
   protected readonly amountError = signal('');
 
   constructor() {
@@ -167,7 +180,8 @@ export class QuoteForm {
           this.editId.set(id);
           this.currentQuote.set(null);
           this.attempted.set(false);
-          this.selectionError.set('');
+          this.customerError.set('');
+          this.statusError.set('');
           this.amountError.set('');
           this.model.set({ customerId: this.contextId() ?? '', amount: '', status: 'draft' });
           if (!id) {
@@ -226,6 +240,7 @@ export class QuoteForm {
     )
       return;
     this.attempted.set(true);
+    this.quoteForm().markAsTouched();
     const value = this.model();
     // Business checks the schema cannot express. They run on every submit so
     // a corrected value clears its message.
@@ -235,16 +250,20 @@ export class QuoteForm {
         ? 'Enter an amount above zero, up to 9,999,999.99 with at most two decimals.'
         : '',
     );
-    this.selectionError.set(
-      !this.customers().some((customer) => customer.id === value.customerId)
-        ? 'Select an existing customer.'
-        : !isQuoteStatus(value.status)
-          ? 'Select a valid status.'
-          : '',
+    this.customerError.set(
+      this.customers().some((customer) => customer.id === value.customerId)
+        ? ''
+        : 'Select an existing customer.',
     );
+    this.statusError.set(isQuoteStatus(value.status) ? '' : 'Select a valid status.');
     // `quoteForm()` (with parens) is the root field state; `.invalid()` is true
     // if any schema rule fails.
-    if (this.quoteForm().invalid() || cents === null || this.selectionError()) {
+    if (
+      this.quoteForm().invalid() ||
+      cents === null ||
+      this.customerError() ||
+      this.statusError()
+    ) {
       // Move keyboard focus to the first invalid control. The template sets
       // `aria-invalid` on the NEXT render, so we wait for it: `afterNextRender`
       // is Angular's `nextTick`. It normally has to be called during

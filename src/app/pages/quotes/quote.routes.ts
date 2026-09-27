@@ -43,12 +43,12 @@ export const quoteRoutes: Routes = [
       // `ActivatedRoute.paramMap` to decide whether it is creating or editing.
       {
         path: 'new',
-        loadComponent: () => import('./quote-form').then((page) => page.QuoteForm),
+        loadComponent: () => import('./quote-form/quote-form').then((page) => page.QuoteForm),
         title: 'Add quote — Genasys',
       },
       {
         path: ':quoteId/edit',
-        loadComponent: () => import('./quote-form').then((page) => page.QuoteForm),
+        loadComponent: () => import('./quote-form/quote-form').then((page) => page.QuoteForm),
         title: 'Edit quote — Genasys',
       },
     ],
