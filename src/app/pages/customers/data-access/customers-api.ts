@@ -72,6 +72,30 @@ export class CustomerQuotesApi {
       params: new HttpParams().set('customerId', customerId),
     });
   }
+
+  // Every quote, used by the list page to show a per-customer quote count.
+  // One request for the whole collection is far cheaper than one `related()`
+  // call per row. `countQuotesByCustomer` below turns the response into counts.
+  all(): Observable<unknown> {
+    return this.http.get<unknown>('/api/quotes');
+  }
+}
+
+/** Number of quotes per customer id. Customers with no quotes are absent. */
+export type QuoteCounts = Readonly<Record<string, number>>;
+
+// Pure helper: tallies a raw `/api/quotes` response into `{ [customerId]: n }`.
+// Quotes without a string `customerId` are skipped rather than failing the
+// whole list; a non-array response is treated as an error like `hasRelatedQuotes`.
+export function countQuotesByCustomer(response: unknown): QuoteCounts {
+  if (!Array.isArray(response)) throw new Error('Could not load quote counts.');
+  const counts = new Map<string, number>();
+  for (const quote of response) {
+    const customerId: unknown = (quote as { customerId?: unknown } | null)?.customerId;
+    if (typeof customerId !== 'string') continue;
+    counts.set(customerId, (counts.get(customerId) ?? 0) + 1);
+  }
+  return Object.fromEntries(counts);
 }
 
 // Pure helper, exported so both the list page and the delete effect share the

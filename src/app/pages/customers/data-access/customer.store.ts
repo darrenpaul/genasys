@@ -14,7 +14,13 @@ import { Router } from '@angular/router';
 import { catchError, exhaustMap, map, of, switchMap, takeUntil, tap } from 'rxjs';
 import { NotificationService } from '../../../shell/notification.service';
 import { Customer, CustomerDraft } from './customer.model';
-import { CustomerQuotesApi, CustomersApi, hasRelatedQuotes } from './customers-api';
+import {
+  countQuotesByCustomer,
+  CustomerQuotesApi,
+  CustomersApi,
+  hasRelatedQuotes,
+  QuoteCounts,
+} from './customers-api';
 
 // ---------------------------------------------------------------------------
 // NgRx in one paragraph, for Vue developers
@@ -47,6 +53,11 @@ export const customerActions = createActionGroup({
     'Load requested': emptyProps(),
     'Load succeeded': props<{ customers: Customer[] }>(),
     'Load failed': props<{ error: string }>(),
+    // Per-customer quote counts for the list page's "Quotes" column. Loaded
+    // separately from the customers so a quotes outage never hides the list.
+    'Quote counts requested': emptyProps(),
+    'Quote counts succeeded': props<{ counts: QuoteCounts }>(),
+    'Quote counts failed': emptyProps(),
     'Get requested': props<{ id: string }>(),
     'Get succeeded': props<{ customer: Customer }>(),
     'Get failed': props<{ error: string }>(),
@@ -91,6 +102,8 @@ interface CustomerState extends EntityState<Customer> {
   checkingId: string | null;
   /** id of the customer the last check refused to delete; the page links to its quotes. */
   blockedId: string | null;
+  /** Quotes per customer id, or null while unknown (not loaded yet, or the request failed). */
+  quoteCounts: QuoteCounts | null;
   error: string | null;
 }
 
@@ -104,6 +117,7 @@ const initialState: CustomerState = adapter.getInitialState({
   deletingId: null,
   checkingId: null,
   blockedId: null,
+  quoteCounts: null,
   error: null,
 });
 
@@ -138,6 +152,12 @@ export const customerFeature = createFeature({
       ...state,
       loadStatus: 'error' as const,
       error,
+    })),
+    // Counts only ever replace the previous snapshot; a failed refresh keeps
+    // the old numbers on screen (same idea as `loadFailed` above).
+    on(customerActions.quoteCountsSucceeded, (state, { counts }) => ({
+      ...state,
+      quoteCounts: counts,
     })),
     on(customerActions.createRequested, customerActions.updateRequested, (state) => ({
       ...state,
@@ -245,6 +265,23 @@ export const customerEffects = {
             catchError((error: unknown) =>
               of(customerActions.loadFailed({ error: errorMessage(error) })),
             ),
+          ),
+        ),
+      ),
+    { functional: true },
+  ),
+  // The "Quotes" column. `switchMap`: a newer request supersedes an older one,
+  // so a stale response can never overwrite fresher counts.
+  loadQuoteCounts: createEffect(
+    (actions$ = inject(Actions), quotes = inject(CustomerQuotesApi)) =>
+      actions$.pipe(
+        ofType(customerActions.quoteCountsRequested),
+        switchMap(() =>
+          quotes.all().pipe(
+            map((response) =>
+              customerActions.quoteCountsSucceeded({ counts: countQuotesByCustomer(response) }),
+            ),
+            catchError(() => of(customerActions.quoteCountsFailed())),
           ),
         ),
       ),

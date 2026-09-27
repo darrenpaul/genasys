@@ -15,7 +15,7 @@ import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { NotificationService } from '../../../shell/notification.service';
 import { Customer } from './customer.model';
-import { hasRelatedQuotes } from './customers-api';
+import { countQuotesByCustomer, hasRelatedQuotes } from './customers-api';
 
 const customer: Customer = {
   id: 'c1',
@@ -47,6 +47,15 @@ describe('Customer state', () => {
     const failed = reduce(loaded, customerActions.loadFailed({ error: 'Offline' }));
     expect(failed.entities['c1']).toEqual(customer);
     expect(failed.loadStatus).toBe('error');
+  });
+
+  it('stores quote counts and keeps the last snapshot when a refresh fails', () => {
+    expect(initial.quoteCounts).toBeNull();
+    const counted = reduce(initial, customerActions.quoteCountsSucceeded({ counts: { c1: 2 } }));
+    expect(counted.quoteCounts).toEqual({ c1: 2 });
+    const failed = reduce(counted, customerActions.quoteCountsFailed());
+    expect(failed.quoteCounts).toEqual({ c1: 2 });
+    expect(failed.error).toBeNull();
   });
 
   it('reflects create, edit and delete success without changing original state', () => {
@@ -151,6 +160,29 @@ describe('Quote dependency response', () => {
     expect(hasRelatedQuotes([{ id: 'q1' }])).toBe(true);
     expect(() => hasRelatedQuotes({ error: 'unknown' })).toThrow(
       'Could not verify related quotes.',
+    );
+  });
+
+  it('counts quotes per customer and skips rows without a customer id', () => {
+    expect(countQuotesByCustomer([])).toEqual({});
+    expect(
+      countQuotesByCustomer([
+        { id: 'q1', customerId: 'c1' },
+        { id: 'q2', customerId: 'c1' },
+        { id: 'q3', customerId: 'c2' },
+        { id: 'q4' },
+        null,
+      ]),
+    ).toEqual({ c1: 2, c2: 1 });
+    const specialIds = countQuotesByCustomer([
+      { customerId: 'toString' },
+      { customerId: 'toString' },
+      { customerId: '__proto__' },
+    ]);
+    expect(specialIds['toString']).toBe(2);
+    expect(specialIds['__proto__']).toBe(1);
+    expect(() => countQuotesByCustomer({ error: 'unknown' })).toThrow(
+      'Could not load quote counts.',
     );
   });
 });
