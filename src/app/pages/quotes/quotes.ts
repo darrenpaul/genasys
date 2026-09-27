@@ -1,30 +1,41 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import {
   Component,
   DestroyRef,
-  ElementRef,
   computed,
   effect,
   inject,
+  linkedSignal,
   signal,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButton } from '@angular/material/button';
+import {
+  MatAutocomplete,
+  MatAutocompleteSelectedEvent,
+  MatAutocompleteTrigger,
+} from '@angular/material/autocomplete';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatChip, MatChipSet } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatFormField, MatSuffix } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
+import { MatInput } from '@angular/material/input';
 import { MatOption } from '@angular/material/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSelect } from '@angular/material/select';
 import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatTooltip } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { take } from 'rxjs';
-import { ConfirmDelete } from '../customers/ui/confirm-delete';
+import { Customer } from '../customers/data-access/customer.model';
+import { ConfirmDelete } from '../../shared/confirm-delete/confirm-delete';
 import { Quote, isQuoteStatus, quoteStatuses } from './data-access/quote.model';
 import { quoteActions, quoteFeature } from './data-access/quote.store';
+import { PageToolbar } from '../../shared/page-toolbar/page-toolbar';
 
 // A quote plus the joined customer name, which is what the table displays and
 // sorts on. The store keeps quotes and customers separate; this page joins them.
@@ -49,38 +60,95 @@ interface QuoteRow extends Quote {
   imports: [
     CurrencyPipe,
     DatePipe,
+    TitleCasePipe,
+    MatAutocomplete,
+    MatAutocompleteTrigger,
     MatButton,
+    MatIconButton,
+    MatChip,
+    MatChipSet,
     MatFormField,
-    MatLabel,
+    MatSuffix,
+    MatIcon,
+    MatInput,
     MatOption,
     MatPaginator,
     MatSelect,
     MatSort,
     MatSortHeader,
     MatTableModule,
+    MatTooltip,
+    PageToolbar,
     RouterLink,
   ],
   templateUrl: './quotes.html',
   styles: `
-    .toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
     .filters {
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
-      align-items: center;
+      align-items: flex-start;
     }
-    .table-scroll {
-      overflow-x: auto;
+    .filters > div {
+      flex: 1 1 16rem;
+      min-width: 0;
+    }
+    .filters mat-form-field {
+      width: 100%;
+    }
+    .filters > .quote-id-filter,
+    .filters > .status-filter {
+      flex: 0 0 256px;
     }
     table {
       min-width: 700px;
       width: 100%;
+    }
+    .row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+    .edit-button,
+    .delete-button {
+      min-width: 40px;
+    }
+    .edit-button {
+      --mat-button-tonal-horizontal-padding: 8px;
+      --mat-button-tonal-icon-spacing: 0px;
+      --mat-button-tonal-icon-offset: 0px;
+    }
+    .delete-button {
+      --mat-button-filled-container-color: #b91c1c;
+      --mat-button-filled-label-text-color: #fff;
+      --mat-button-filled-horizontal-padding: 8px;
+      --mat-button-filled-icon-spacing: 0px;
+      --mat-button-filled-icon-offset: 0px;
+    }
+    .status-chip {
+      --mat-chip-elevated-container-color: var(--status-color);
+      --mat-chip-outline-width: 0px;
+      box-sizing: border-box;
+      width: 100px;
+      border: 1px solid;
+      border-color: var(--status-color);
+    }
+    .status-chip.status-draft {
+      --status-color: #6b7280;
+      --mat-chip-label-text-color: #fff;
+    }
+    .status-chip.status-submitted {
+      --status-color: #eab308;
+      --mat-chip-label-text-color: #1f2937;
+    }
+    .status-chip.status-approved {
+      --status-color: #15803d;
+      --mat-chip-label-text-color: #fff;
+    }
+    .status-chip.status-declined {
+      --status-color: #b91c1c;
+      --mat-chip-label-text-color: #fff;
     }
     .sr-only {
       position: absolute;
@@ -104,10 +172,7 @@ export class Quotes {
   private readonly destroyRef = inject(DestroyRef);
   private readonly sort = viewChild(MatSort);
   private readonly paginator = viewChild(MatPaginator);
-  // `viewChild('heading')` looks up the `#heading` template reference variable
-  // (Vue: `ref="heading"`). `ElementRef` wraps the DOM node; `.nativeElement`
-  // is the <h1> itself.
-  private readonly heading = viewChild<ElementRef<HTMLHeadingElement>>('heading');
+  private readonly toolbar = viewChild(PageToolbar);
 
   protected readonly statuses = quoteStatuses;
   // Column ids, matched against `matColumnDef="..."` in the template. Order
@@ -132,6 +197,8 @@ export class Quotes {
   // `filterStatus()` below change the URL, never these signals directly.
   protected readonly customerId = signal<string | null>(null);
   protected readonly statusParam = signal<string | null>(null);
+  // Free-text ID search stays local, like the Customers list search.
+  protected readonly quoteIdSearch = signal('');
 
   // --- Derived state ---------------------------------------------------------
   // `computed()` behaves like Vue's: evaluated lazily and re-evaluated only when
@@ -139,6 +206,17 @@ export class Quotes {
   protected readonly customer = computed(() =>
     this.customers().find((c) => c.id === this.customerId()),
   );
+  // Typing is local; changing the URL or loading its selected customer resets
+  // the text to the selected name. Unconfirmed search never filters the table.
+  protected readonly customerSearch = linkedSignal(() => this.customerName(this.customer()));
+  protected readonly matchingCustomers = computed(() => {
+    const search = this.customerSearch().trim().toLocaleLowerCase();
+    const selectedName = this.customerName(this.customer()).toLocaleLowerCase();
+    if (!search || search === selectedName) return this.customers().slice(0, 50);
+    return this.customers()
+      .filter((customer) => this.customerName(customer).toLocaleLowerCase().includes(search))
+      .slice(0, 50);
+  });
   // A `?customerId=` that matches no customer (typo, deleted customer). The
   // check waits for customers to be loaded, otherwise every page load would
   // briefly flash the "cannot be resolved" message.
@@ -155,11 +233,17 @@ export class Quotes {
   protected readonly rows = computed<QuoteRow[]>(() => {
     const id = this.customerId();
     const status = this.statusParam();
+    const quoteId = this.quoteIdSearch().trim().toLocaleLowerCase();
     const customers = this.customers();
     if (this.customersStatus() !== 'loaded' || this.invalidCustomer() || this.invalidStatus())
       return [];
     return this.quotes()
-      .filter((quote) => (!id || quote.customerId === id) && (!status || quote.status === status))
+      .filter(
+        (quote) =>
+          (!id || quote.customerId === id) &&
+          (!status || quote.status === status) &&
+          (!quoteId || quote.id.toLocaleLowerCase().includes(quoteId)),
+      )
       .map((quote) => ({
         ...quote,
         customerName: (() => {
@@ -221,7 +305,7 @@ export class Quotes {
     // the heading instead. The <h1> has `tabindex="-1"` so it can receive
     // programmatic focus without joining the Tab order.
     this.actions$.pipe(ofType(quoteActions.deleteSucceeded), takeUntilDestroyed()).subscribe(() => {
-      this.heading()?.nativeElement.focus();
+      this.toolbar()?.focusHeading();
     });
     // Kick off both loads. The effects in quote.store.ts do the HTTP work and
     // dispatch the succeeded/failed actions the signals above react to.
@@ -240,6 +324,43 @@ export class Quotes {
       queryParams: { customerId: value || null },
       queryParamsHandling: 'merge',
     });
+  }
+
+  protected readonly displayCustomer = (value: Customer | string | null): string =>
+    typeof value === 'string' ? value : this.customerName(value);
+
+  private customerName(customer: Customer | null | undefined): string {
+    return customer ? `${customer.firstName} ${customer.lastName}` : '';
+  }
+
+  protected searchCustomers(event: Event): void {
+    this.customerSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  protected selectCustomer(event: MatAutocompleteSelectedEvent): void {
+    const value: unknown = event.option.value;
+    if (!value || typeof value !== 'object' || !('id' in value)) return;
+    const customer = this.customers().find((item) => item.id === value.id);
+    if (!customer) return;
+    this.customerSearch.set(this.customerName(customer));
+    this.filterCustomer(customer.id);
+  }
+
+  protected clearCustomerFilter(event: MouseEvent, input: HTMLInputElement): void {
+    event.stopPropagation();
+    this.customerSearch.set('');
+    this.filterCustomer(null);
+    input.focus();
+  }
+
+  protected searchQuoteId(event: Event): void {
+    this.quoteIdSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  protected clearQuoteId(input: HTMLInputElement): void {
+    input.value = '';
+    this.quoteIdSearch.set('');
+    input.focus();
   }
 
   protected filterStatus(value: string | null): void {
