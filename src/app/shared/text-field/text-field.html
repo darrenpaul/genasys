@@ -1,0 +1,19 @@
+<div class="field-heading">
+  <label class="field-label" [for]="id()">{{ label() }}</label>
+  @if (showError()) {
+    <p class="field-feedback" [id]="errorId()" role="alert">{{ errorText() }}</p>
+  }
+</div>
+<mat-form-field appearance="outline">
+  <input
+    matInput
+    [id]="id()"
+    [type]="type()"
+    [placeholder]="placeholder()"
+    [attr.inputmode]="inputmode()"
+    [attr.autocomplete]="autocomplete()"
+    [formField]="field()"
+    [attr.aria-describedby]="showError() ? errorId() : null"
+    [attr.aria-invalid]="showError() ? true : null"
+  />
+</mat-form-field>

@@ -1,0 +1,5 @@
+/* .mat-mdc-form-field needed for specificity over Material's inline-flex. */
+app-text-field .mat-mdc-form-field {
+  display: flex;
+  flex-direction: column;
+}
