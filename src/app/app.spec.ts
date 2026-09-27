@@ -45,9 +45,11 @@ describe('App shell', () => {
     expect(logo?.getAttribute('src')).toContain('/genasys-logo.webp');
     expect(logo?.alt).toBe('Genasys');
     expect(toolbar?.querySelector('nav')).toBeNull();
-    expect(
-      root.querySelector('mat-sidenav mat-nav-list[aria-label="Primary navigation"]'),
-    ).toBeTruthy();
+    const navList = root.querySelector(
+      'mat-sidenav mat-nav-list[aria-label="Primary navigation"]',
+    )!;
+    expect(getComputedStyle(navList).paddingTop).toBe('0px');
+    expect(getComputedStyle(navList).paddingBottom).toBe('0px');
     expect(root.querySelector('mat-sidenav.mat-drawer-opened')).toBeTruthy();
     expect(
       getComputedStyle(toolbar!).getPropertyValue('--mat-toolbar-container-background-color'),
@@ -62,6 +64,11 @@ describe('App shell', () => {
     ).toBe('#2f3351');
     expect(getComputedStyle(sidebar).getPropertyValue('--mat-sidenav-container-shape')).toBe('0');
     const activeLink = root.querySelector('mat-nav-list a[aria-current="page"]')!;
+    expect(
+      getComputedStyle(activeLink).getPropertyValue(
+        '--mat-list-list-item-one-line-container-height',
+      ),
+    ).toBe('64px');
     expect(activeLink.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe(
       'group',
     );
@@ -100,7 +107,24 @@ describe('App shell', () => {
       '#fff',
     );
     expect(toolbar?.querySelectorAll('mat-toolbar-row')).toHaveLength(0);
-    expect(root.querySelector('main#main-content h1')?.textContent).toBe('Customers');
+    const pageToolbar = root.querySelector('main#main-content app-page-toolbar')!;
+    expect(getComputedStyle(pageToolbar).position).toBe('sticky');
+    expect(getComputedStyle(pageToolbar).top).toBe('0px');
+    expect(getComputedStyle(root.querySelector('main')!).height).toBe('100%');
+    expect(pageToolbar.querySelector('h1')?.textContent).toBe('Customers');
+    const addCustomer = pageToolbar.querySelector('a[href="/customers/new"]')!;
+    expect(addCustomer.querySelector('mat-icon[aria-hidden="true"]')?.textContent).toBe('add');
+    expect(addCustomer.querySelector('.mdc-button__label')?.textContent?.trim()).toBe(
+      'Add customer',
+    );
+    expect(getComputedStyle(pageToolbar).backgroundColor).toBe('rgb(47, 51, 81)');
+    expect(getComputedStyle(pageToolbar).minHeight).toBe('64px');
+    const toolbarContent = pageToolbar.querySelector('.toolbar-content')!;
+    expect(getComputedStyle(toolbarContent).maxWidth).toBe('1440px');
+    expect(getComputedStyle(toolbarContent).width).toBe('100%');
+    expect(getComputedStyle(toolbarContent).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(pageToolbar.nextElementSibling?.classList.contains('page-content')).toBe(true);
+    expect(getComputedStyle(root.querySelector('main')!).padding).not.toBe('1rem');
     expect(document.title).toBe('Customers — Genasys');
   });
 
@@ -121,8 +145,15 @@ describe('App shell', () => {
     await fixture.whenStable();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('main h1')?.textContent).toBe('Page not found');
-    expect(root.querySelector('main a[href="/customers"]')?.textContent).toContain('Customers');
+    expect(root.querySelector('main app-page-toolbar h1')?.textContent).toBe('Page not found');
+    expect(getComputedStyle(root.querySelector('main')!).height).toBe('auto');
+    expect(getComputedStyle(root.querySelector('main app-page-toolbar')!).minHeight).toBe('64px');
+    expect(
+      getComputedStyle(root.querySelector('main app-page-toolbar .toolbar-content')!).maxWidth,
+    ).toBe('1440px');
+    expect(root.querySelector('main .page-content a[href="/customers"]')?.textContent).toContain(
+      'Customers',
+    );
     expect(document.title).toBe('Page not found — Genasys');
 
     await router.navigateByUrl('/customers/missing');
@@ -155,7 +186,13 @@ describe('App shell', () => {
     expect(customers.hasAttribute('aria-current')).toBe(false);
     expect(quotes.getAttribute('aria-current')).toBe('page');
     expect(quotes.classList.contains('mdc-list-item--activated')).toBe(true);
-    expect(root.querySelector('main h1')?.textContent).toBe('Quotes');
+    expect(root.querySelector('main app-page-toolbar h1')?.textContent).toBe('Quotes');
+    const addQuote = root.querySelector('main app-page-toolbar a[href="/quotes/new"]')!;
+    expect(addQuote.querySelector('mat-icon[aria-hidden="true"]')?.textContent).toBe('add');
+    expect(addQuote.querySelector('.mdc-button__label')?.textContent?.trim()).toBe('Add quote');
+    expect(root.querySelector('main app-page-toolbar')?.nextElementSibling?.className).toBe(
+      'page-content',
+    );
     expect(document.title).toBe('Quotes — Genasys');
     expect(document.activeElement).toBe(root.querySelector('main h1'));
 

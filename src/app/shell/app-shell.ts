@@ -29,6 +29,25 @@ import { map } from 'rxjs';
   ],
   templateUrl: './app-shell.html',
   styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    header {
+      flex: none;
+    }
+
+    mat-sidenav-content main {
+      height: 100%;
+    }
+
+    mat-sidenav-content main:has(app-customer-form, app-quote-form, app-not-found) {
+      height: auto;
+      min-height: 100%;
+    }
+
     .skip-link:not(:focus) {
       position: absolute;
       clip-path: inset(50%);
@@ -56,7 +75,8 @@ import { map } from 'rxjs';
     }
 
     .shell-container {
-      min-height: calc(100dvh - 64px);
+      flex: 1;
+      min-height: 0;
     }
 
     .sidebar {
@@ -69,9 +89,14 @@ import { map } from 'rxjs';
       --mat-list-list-item-hover-label-text-color: #b7b8c3;
       --mat-list-list-item-focus-label-text-color: #b7b8c3;
       --mat-list-list-item-leading-icon-color: #b7b8c3;
+      --mat-list-list-item-one-line-container-height: 64px;
       --mat-list-list-item-hover-leading-icon-color: #b7b8c3;
       --mat-list-active-indicator-color: #4c76b7;
       --mat-list-active-indicator-shape: 0;
+    }
+
+    .sidebar mat-nav-list {
+      padding: 0;
     }
 
     .sidebar a[aria-current='page'] {
@@ -82,10 +107,6 @@ import { map } from 'rxjs';
       --mat-list-list-item-hover-leading-icon-color: #fff;
     }
 
-    main {
-      padding: 1rem;
-    }
-
     @media (max-width: 767px) {
       .menu-toggle {
         display: inline-flex;
@@ -93,8 +114,8 @@ import { map } from 'rxjs';
     }
 
     @media (max-width: 599px) {
-      .shell-container {
-        min-height: calc(100dvh - 56px);
+      .sidebar {
+        --mat-list-list-item-one-line-container-height: 56px;
       }
     }
   `,

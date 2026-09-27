@@ -1,13 +1,16 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { PageToolbar } from '../../shared/page-toolbar/page-toolbar';
 
 @Component({
   selector: 'app-not-found',
-  imports: [RouterLink],
+  imports: [RouterLink, PageToolbar],
   template: `
-    <h1>Page not found</h1>
-    <p>This page does not exist.</p>
-    <a routerLink="/customers">Go to Customers</a>
+    <app-page-toolbar title="Page not found" />
+    <div class="page-content">
+      <p>This page does not exist.</p>
+      <a routerLink="/customers">Go to Customers</a>
+    </div>
   `,
 })
 export class NotFound {}
