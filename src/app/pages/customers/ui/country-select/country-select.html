@@ -1,0 +1,57 @@
+<!--
+  See country-select.ts for the component's contract.
+
+  `(input)` on <app-search-field> works without an @output there: the native
+  input event bubbles up from the inner <input>.
+-->
+<app-search-field
+  [id]="id()"
+  [label]="label()"
+  [placeholder]="placeholder()"
+  [required]="required()"
+  [value]="query()"
+  [error]="error()"
+  [extraDescribedby]="warning() ? warningId() : null"
+  (input)="onInput($event)"
+>
+  <!--
+    Non-blocking warning beside the label: the bundled country list still
+    works when the live refresh fails. `role="status"` is polite (announced
+    when the screen reader is idle). `type="button"` keeps Retry from
+    submitting the enclosing form.
+  -->
+  @if (warning()) {
+    <div fieldFeedback class="field-feedback hint" [id]="warningId()">
+      <span role="status">Country refresh unavailable; full local list remains available.</span>
+      <button mat-button type="button" (click)="retry.emit()">Retry country refresh</button>
+    </div>
+  }
+  <!--
+    Two option groups: surname-based suggestions first, then everything else.
+    `[value]` on <mat-option> is what `(optionSelected)` receives. Here it is
+    the country name so the input shows readable text after a pick.
+    `aria-hidden` on the flag emoji stops screen readers reading out a
+    description of the flag before every country name.
+  -->
+  <mat-autocomplete (optionSelected)="choose($event)" (closed)="onPanelClosed()">
+    @if (matchingPredictions().length) {
+      <mat-optgroup label="Suggested countries">
+        @for (prediction of matchingPredictions(); track prediction.country.code) {
+          <mat-option [value]="prediction.country.name">
+            <span aria-hidden="true">{{ prediction.country.flag }}</span>
+            {{ prediction.country.name }}
+          </mat-option>
+        }
+      </mat-optgroup>
+    }
+    @if (matchingCountries().length) {
+      <mat-optgroup label="All countries">
+        @for (country of matchingCountries(); track country.code) {
+          <mat-option [value]="country.name">
+            <span aria-hidden="true">{{ country.flag }}</span> {{ country.name }}
+          </mat-option>
+        }
+      </mat-optgroup>
+    }
+  </mat-autocomplete>
+</app-search-field>
