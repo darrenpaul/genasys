@@ -16,11 +16,12 @@ import {
   MatAutocompleteSelectedEvent,
 } from '@angular/material/autocomplete';
 import { MatButton, MatIconButton } from '@angular/material/button';
-import { MatFormField, MatLabel, MatError, MatHint, MatSuffix } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
+import { MatCard, MatCardContent } from '@angular/material/card';
+import { MatDivider } from '@angular/material/divider';
+import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  FormField,
   applyEach,
   email,
   form,
@@ -43,7 +44,13 @@ import {
   take,
   timer,
 } from 'rxjs';
-import { Address, Customer, CustomerDraft, University } from './data-access/customer.model';
+import {
+  Address,
+  ConfirmedCountry,
+  Customer,
+  CustomerDraft,
+  University,
+} from '../data-access/customer.model';
 import {
   Country,
   CountriesApi,
@@ -52,8 +59,12 @@ import {
   Prediction,
   UniversitiesApi,
   UniversityOption,
-} from './data-access/enrichment-api';
-import { customerActions, customerFeature, selectCustomer } from './data-access/customer.store';
+} from '../data-access/enrichment-api';
+import { customerActions, customerFeature, selectCustomer } from '../data-access/customer.store';
+import { PageToolbar } from '../../../shared/page-toolbar/page-toolbar';
+import { SearchField } from '../../../shared/search-field/search-field';
+import { TextField } from '../../../shared/text-field/text-field';
+import { CountrySelect } from '../ui/country-select/country-select';
 
 // One component serves both `/customers/new` and `/customers/:customerId/edit`.
 // It decides which mode it is in by whether the route has a `customerId`.
@@ -118,35 +129,65 @@ function blankModel(): CustomerFormModel {
   // `MatAutocompleteModule` bundles <mat-autocomplete>, <mat-option>,
   // <mat-optgroup> and the `[matAutocomplete]` input directive.
   imports: [
-    FormField,
     MatButton,
     MatIconButton,
-    MatSuffix,
-    MatFormField,
-    MatLabel,
-    MatError,
-    MatHint,
-    MatInput,
+    MatCard,
+    MatCardContent,
+    MatDivider,
+    MatIcon,
     MatAutocompleteModule,
     RouterLink,
+    PageToolbar,
+    SearchField,
+    TextField,
+    CountrySelect,
   ],
   templateUrl: './customer-form.html',
+  providers: [
+    { provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: { subscriptSizing: 'dynamic' } },
+  ],
   styles: `
     form {
       max-width: 52rem;
     }
-    mat-form-field {
-      display: block;
+    .customer-details-card {
+      margin-bottom: 1rem;
     }
-    fieldset {
+    mat-card h2 {
+      margin-top: 0;
+    }
+    .address-row {
       margin-block: 1rem;
-      border: 1px solid #888;
-      border-radius: 4px;
     }
-    .actions {
+    .address-heading {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 1rem;
-      margin-block: 1rem;
+    }
+    .address-heading h3 {
+      margin: 0;
+    }
+    .remove-address-button {
+      min-width: 40px;
+      --mat-button-filled-horizontal-padding: 8px;
+      --mat-button-filled-icon-spacing: 0px;
+      --mat-button-filled-icon-offset: 0px;
+      --mat-button-filled-container-color: #b91c1c;
+      --mat-button-filled-label-text-color: #fff;
+    }
+    .address-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .toolbar-actions a {
+      --mat-button-text-label-text-color: #fff;
+      --mat-button-text-state-layer-color: #fff;
     }
   `,
 })
@@ -169,10 +210,11 @@ export class CustomerForm {
   // Template ref to the <form> element (`#formElement` in the HTML). Typed so
   // `.nativeElement` is an HTMLFormElement.
   private readonly formElement = viewChild<ElementRef<HTMLFormElement>>('formElement');
-  // Same idea as `ref="countryInput"` + `useTemplateRef()` in Vue. These are
-  // only used to put keyboard focus back into the input after a Retry click.
-  private readonly countryInput = viewChild<ElementRef<HTMLInputElement>>('countryInput');
-  private readonly universityInput = viewChild<ElementRef<HTMLInputElement>>('universityInput');
+  // Same idea as `ref="countryField"` + `useTemplateRef()` in Vue. These are
+  // only used to put keyboard focus back into the search input after a Retry
+  // click, through the component's `focus()` method.
+  private readonly countryField = viewChild<CountrySelect>('countryField');
+  private readonly universityField = viewChild<SearchField>('universityField');
 
   // --- The form ------------------------------------------------------------
   // `model` holds the current values. `[formField]` bindings in the template
@@ -226,42 +268,13 @@ export class CustomerForm {
   // page works even when the country service is down, then is replaced by the
   // live list if the refresh in `loadCountries()` succeeds.
   protected readonly countries = signal<Country[]>(fallbackCountries);
-  /** True when the live country refresh failed; the template offers a Retry. */
+  /** True when the live country refresh failed; the picker offers a Retry. */
   protected readonly countryWarning = signal(false);
-  // What the user has typed into the country search box. Deliberately NOT
-  // part of `model`: the form only cares about the *confirmed* country
-  // (`model().nationality`), not the text used to find it.
-  protected readonly countryQuery = signal('');
-  /** Surname-based suggestions from the nationality API, best match first. */
+  // Surname-based suggestions from the nationality API, best match first.
+  // Passed into <app-country-select>, which does the filtering and rendering.
+  // The search text itself lives inside the picker: the form only cares about
+  // the *confirmed* country (`model().nationality`).
   protected readonly predictions = signal<Prediction[]>([]);
-
-  // `computed()` behaves like Vue's `computed()`: cached, and re-evaluated
-  // only when a signal it read has changed. One syntax difference: you *call*
-  // a signal to read it (`this.countryQuery()`) where Vue uses `.value`.
-  //
-  // Opening an already confirmed value still shows suggestions; typing a new
-  // search narrows both groups without changing the confirmed country.
-  private readonly countrySearchText = computed(() => {
-    const text = this.countryQuery().trim().toLocaleLowerCase();
-    return text === this.model().nationality?.name.toLocaleLowerCase() ? '' : text;
-  });
-  /** Predictions that match the search text. Rendered as "Suggested countries". */
-  protected readonly matchingPredictions = computed(() => {
-    const text = this.countrySearchText();
-    return this.predictions().filter((item) =>
-      item.country.name.toLocaleLowerCase().includes(text),
-    );
-  });
-  // Every other matching country, rendered as "All countries". Countries that
-  // already appear as a suggestion are excluded so nothing is listed twice.
-  // Capped at 50 so the dropdown stays fast to render.
-  protected readonly matchingCountries = computed(() => {
-    const text = this.countrySearchText();
-    const suggested = new Set(this.matchingPredictions().map((item) => item.country.code));
-    return this.countries()
-      .filter((item) => item.name.toLocaleLowerCase().includes(text) && !suggested.has(item.code))
-      .slice(0, 50);
-  });
   // A small state machine for the hint under the country input:
   //   idle     surname too short, nothing to do
   //   waiting  surname changed, debounce timer running
@@ -283,6 +296,10 @@ export class CustomerForm {
   protected readonly universityState = signal<
     'idle' | 'waiting' | 'loading' | 'empty' | 'ready' | 'error'
   >('idle');
+  /** True while the university hint block is visible beside the label. */
+  protected readonly universityHintVisible = computed(() =>
+    ['waiting', 'loading', 'empty', 'error'].includes(this.universityState()),
+  );
 
   // --- Manual triggers into the RxJS pipelines ------------------------------
   // A `Subject` is an RxJS stream you push into by hand with `.next(value)`.
@@ -312,13 +329,15 @@ export class CustomerForm {
     });
   }
 
-  // --- Country handlers -----------------------------------------------------
+  // --- Country handler ------------------------------------------------------
   /**
-   * Makes `country` the confirmed nationality. Changing country also resets
-   * the university, because a university is only meaningful for the country
-   * it was searched under.
+   * `(valueChange)` from <app-country-select>: the user picked a country.
+   * Changing country also resets the university, because a university is only
+   * meaningful for the country it was searched under. The picker never emits
+   * null; the parameter is nullable only because the bound value is.
    */
-  protected confirmCountry(country: Country): void {
+  protected confirmCountry(country: ConfirmedCountry | null): void {
+    if (!country) return;
     if (this.model().nationality?.code !== country.code) {
       this.universityQuery.set('');
       this.universities.set([]);
@@ -330,19 +349,8 @@ export class CustomerForm {
         universities: [blankUniversity()],
       }));
     }
-    // Show the confirmed name in the search box, and let the university
-    // pipeline know the country changed.
-    this.countryQuery.set(country.name);
+    // Let the university pipeline know the country changed.
     this.searchChanged();
-  }
-  /**
-   * `(optionSelected)` from the country <mat-autocomplete>. The option's
-   * `[value]` is the country name (so the input shows readable text), which
-   * we map back to the full `Country` object here.
-   */
-  protected chooseCountry(event: MatAutocompleteSelectedEvent): void {
-    const country = this.countries().find((item) => item.name === event.option.value);
-    if (country) this.confirmCountry(country);
   }
   // `[displayWith]` for the university autocomplete. Its option values are
   // whole `UniversityOption` objects, so Material asks this function how to
@@ -350,10 +358,6 @@ export class CustomerForm {
   // method) so `this` is not lost when Material calls it.
   protected readonly displayUniversity = (option: UniversityOption | string | null): string =>
     typeof option === 'string' ? option : (option?.name ?? '');
-  /** `(input)` on the country search box. Updates the search text only, never the confirmed country. */
-  protected onCountryInput(event: Event): void {
-    this.countryQuery.set((event.target as HTMLInputElement).value);
-  }
 
   // --- Retry handlers -------------------------------------------------------
   // Focus goes back to the input *before* the retry so a keyboard user is
@@ -362,11 +366,11 @@ export class CustomerForm {
     this.loadCountries();
   }
   protected retryNationality(): void {
-    this.countryInput()?.nativeElement.focus();
+    this.countryField()?.focus();
     this.retryPrediction.next();
   }
   protected retrySearch(): void {
-    this.universityInput()?.nativeElement.focus();
+    this.universityField()?.focus();
     this.retryUniversity.next();
   }
 
@@ -564,9 +568,9 @@ export class CustomerForm {
           this.attempted.set(false);
           this.currentCustomer.set(null);
           this.model.set(blankModel());
-          // The two search boxes live outside `model`, so clear them too.
+          // The university search box lives outside `model`, so clear it too.
+          // (The country picker resets its own text when `[value]` changes.)
           this.universityQuery.set('');
-          this.countryQuery.set('');
           // Create mode: returning an empty array = "emit nothing, complete".
           if (!id) return [];
           // Edit mode. If the list page already loaded this customer, it is in
@@ -604,10 +608,10 @@ export class CustomerForm {
             customer.universities[0] ? { ...customer.universities[0] } : blankUniversity(),
           ],
         });
-        // Pre-fill the search boxes so the user sees the saved country and
-        // university as text. The pipelines above recognise "query equals the
-        // confirmed value" and stay idle, so this does not trigger lookups.
-        this.countryQuery.set(customer.nationality?.name ?? '');
+        // Pre-fill the university search box so the user sees the saved name
+        // as text. Pipeline 2 recognises "query equals the confirmed value" and
+        // stays idle, so this does not trigger a lookup. The country picker
+        // fills its own box from `[value]`.
         this.universityQuery.set(customer.universities[0]?.name ?? '');
       });
   }
@@ -654,9 +658,7 @@ export class CustomerForm {
           const target =
             firstInvalid ??
             (!this.model().nationality
-              ? this.formElement()?.nativeElement.querySelector<HTMLElement>(
-                  'input[aria-label="Search all countries"]',
-                )
+              ? this.formElement()?.nativeElement.querySelector<HTMLElement>('#customer-country')
               : null);
           target?.scrollIntoView({ behavior: 'auto', block: 'center' });
           target?.focus({ preventScroll: true });

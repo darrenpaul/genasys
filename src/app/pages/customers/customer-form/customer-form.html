@@ -1,0 +1,288 @@
+<!--
+  Template for the create/edit customer form (see customer-form.ts).
+
+  Key Signal Forms bits used below:
+    [formField]="customerForm.firstName"   two-way binding, like v-model.
+    customerForm.firstName()               the field's state object.
+      .touched()   user has focused and left the input
+      .invalid()   at least one rule fails
+      .errors()    array of { kind, message } for the failing rules
+
+  Error display rule, repeated for every required field:
+    show the error when the field is invalid AND (the user has touched it OR
+    they have tried to submit). This avoids shouting "required" at an empty
+    form the user has not started filling in yet.
+
+  Two fields below are NOT Signal Forms `[formField]` bindings: the country
+  search and the university search (<app-search-field>). They are plain inputs
+  wired the "manual v-model" way, `[value]` in and `(input)` out, because what
+  the user types there is a search query, not the value we save. The confirmed
+  choice lands in the form model only when an autocomplete option is selected.
+-->
+
+<app-page-toolbar [title]="editId() ? 'Edit customer' : 'Add customer'">
+  <div class="toolbar-actions">
+    <a mat-button routerLink="/customers">Cancel</a>
+    @if (!editId() || currentCustomer()) {
+      <button mat-flat-button type="submit" form="customer-form" [disabled]="saving() === 'saving'">
+        <mat-icon fontSet="material-symbols-outlined" aria-hidden="true">save</mat-icon>
+        {{ saving() === 'saving' ? 'Saving…' : 'Save' }}
+      </button>
+    }
+  </div>
+</app-page-toolbar>
+
+<div class="page-content">
+  <!-- Edit mode while the customer is still loading (or failed to load). -->
+  @if (editId() && !currentCustomer()) {
+    @if (status() === 'error') {
+      <p role="alert">{{ error() }}</p>
+    } @else {
+      <p role="status">Loading customer…</p>
+    }
+  } @else {
+    <!-- Save errors from the store (e.g. network failure on submit). -->
+    @if (error()) {
+      <p role="alert">{{ error() }}</p>
+    }
+    <!--
+    `novalidate` turns off the browser's built-in validation bubbles so our own
+    messages (and the scroll-to-first-error logic) are the only feedback.
+    `#formElement` is picked up by `viewChild('formElement')` in the class.
+  -->
+    <form id="customer-form" #formElement (submit)="save($event)" novalidate>
+      <mat-card class="customer-details-card" appearance="outlined">
+        <mat-card-content>
+          <h2>Customer details</h2>
+          <!--
+      Pattern for one Material text field:
+        <mat-form-field>  the outlined box
+        <label>           visible label above the input
+        <input matInput>  the actual input, wired to the field
+        <p role="alert">  feedback beside the label when invalid
+      `aria-invalid` is bound to `null` when valid so the attribute is removed
+      entirely rather than rendered as aria-invalid="false".
+    -->
+          <app-text-field
+            id="customer-first-name"
+            label="First name"
+            placeholder="e.g. Amina"
+            autocomplete="given-name"
+            [field]="customerForm.firstName"
+            [attempted]="attempted()"
+          />
+          <!--
+      Last name has an extra `(input)` listener alongside `[formField]`, like
+      putting `@input` next to `v-model`. It kicks off the surname ->
+      nationality suggestions straight away.
+    -->
+          <app-text-field
+            id="customer-last-name"
+            label="Last name"
+            placeholder="e.g. Okafor"
+            autocomplete="family-name"
+            [field]="customerForm.lastName"
+            [attempted]="attempted()"
+            (input)="onSurnameInput($event)"
+          />
+          <app-text-field
+            id="customer-email"
+            label="Email"
+            type="email"
+            placeholder="name@example.com"
+            autocomplete="email"
+            [field]="customerForm.email"
+            [attempted]="attempted()"
+          />
+          <!--
+      Country picker (required). See ui/country-select.ts for the internals:
+      the search text, the filtering and the two option groups all live there.
+      This form only supplies data and reacts to a pick:
+
+        [value] / (valueChange)   the confirmed country, in and out. Same as
+                                  `:modelValue` + `@update:modelValue` in Vue.
+        [countries]               kept here, not in the picker, because the
+                                  surname pipeline and `save()` need it too.
+        [predictions]             surname-based suggestions from pipeline 1.
+        [warning] / (retry)       live country refresh failed; user asked again.
+
+      `#countryField` is a template reference variable, Angular's `ref="..."`.
+      It is read by `viewChild('countryField')` in the class so Retry can move
+      focus back into the search input.
+
+      Validation is manual because this is not a Signal Forms field; see the
+      note in customer-form.ts.
+    -->
+          <app-country-select
+            #countryField
+            id="customer-country"
+            [countries]="countries()"
+            [predictions]="predictions()"
+            [warning]="countryWarning()"
+            [error]="attempted() && !model().nationality ? 'Choose a country.' : ''"
+            [value]="model().nationality"
+            (valueChange)="confirmCountry($event)"
+            (retry)="retryCountries()"
+          />
+          <!--
+      University search. Disabled until a country is confirmed because the
+      provider searches within one country. Unlike the country picker, each
+      option's `[value]` is the whole option object, so `[displayWith]` tells
+      Material how to print the chosen object as input text.
+    -->
+          <app-search-field
+            #universityField
+            id="customer-university"
+            label="University"
+            placeholder="Search universities"
+            [disabled]="!model().nationality"
+            [value]="universityQuery()"
+            [extraDescribedby]="universityHintVisible() ? 'customer-university-hint' : null"
+            (input)="onUniversityInput($event)"
+          >
+            @if (universityHintVisible()) {
+              <div
+                fieldFeedback
+                class="field-feedback hint"
+                [class.error]="universityState() === 'error'"
+                id="customer-university-hint"
+              >
+                @switch (universityState()) {
+                  @case ('waiting') {
+                    <span role="status">Waiting for search…</span>
+                  }
+                  @case ('loading') {
+                    <span role="status">Searching universities…</span>
+                  }
+                  @case ('empty') {
+                    <span>No universities found.</span>
+                  }
+                  @case ('error') {
+                    <span role="alert">University search unavailable.</span>
+                    <button mat-button type="button" (click)="retrySearch()">
+                      Retry university search
+                    </button>
+                  }
+                }
+              </div>
+            }
+            <mat-autocomplete
+              [displayWith]="displayUniversity"
+              (optionSelected)="chooseUniversity($event)"
+            >
+              <!-- The provider gives no stable id, so the `:key` is name + website. -->
+              @for (option of universities(); track option.name + option.website) {
+                <mat-option [value]="option"
+                  >{{ option.name }}
+                  @if (option.website) {
+                    — {{ option.website }}
+                  }
+                </mat-option>
+              }
+            </mat-autocomplete>
+            <!--
+        Clear button, rendered inside the field's right edge. `fieldSuffix` is
+        <app-search-field>'s own slot name (see search-field.html for why it is
+        not Material's `matIconSuffix`).
+        `@if` removes it entirely when nothing is selected, so it is never a
+        dead tab stop. The visible "×" is hidden from assistive tech and the
+        `aria-label` provides the real name.
+      -->
+            @if (model().universities[0]?.name) {
+              <button
+                mat-icon-button
+                fieldSuffix
+                type="button"
+                aria-label="Clear university"
+                (click)="clearUniversity()"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            }
+          </app-search-field>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="addresses-card" appearance="outlined">
+        <mat-card-content>
+          <h2>Addresses</h2>
+          <!--
+      Looping over an array field. `customerForm.addresses` is iterable and
+      yields one sub-form per address; `address.street` etc. bind the same way
+      as top-level fields.
+
+      Signal Forms array fields are tied to their current index. Track the
+      field signal itself: reading a removed field's value during Angular's
+      list reconciliation would throw an "Orphan field" error.
+
+      `let i = $index` exposes the index for the heading and aria-label.
+    -->
+          @for (
+            address of customerForm.addresses;
+            track address;
+            let i = $index;
+            let last = $last
+          ) {
+            <div
+              class="address-row"
+              role="group"
+              [attr.aria-labelledby]="'address-heading-' + address().value().id"
+            >
+              <div class="address-heading">
+                <h3 [id]="'address-heading-' + address().value().id">Address {{ i + 1 }}</h3>
+                <!-- Keep removal separate from form submission; one address is required. -->
+                <button
+                  mat-flat-button
+                  class="remove-address-button"
+                  type="button"
+                  (click)="removeAddress(address().value().id)"
+                  [disabled]="model().addresses.length === 1"
+                  [attr.aria-label]="'Remove address ' + (i + 1)"
+                >
+                  <mat-icon fontSet="material-symbols-outlined" aria-hidden="true">delete</mat-icon>
+                </button>
+              </div>
+              <app-text-field
+                [id]="'address-street-' + address().value().id"
+                label="Street"
+                placeholder="e.g. 123 Main Street"
+                [field]="address.street"
+                [attempted]="attempted()"
+              />
+              <app-text-field
+                [id]="'address-city-' + address().value().id"
+                label="City"
+                placeholder="e.g. Lagos"
+                [field]="address.city"
+                [attempted]="attempted()"
+              />
+              <app-text-field
+                [id]="'address-suburb-' + address().value().id"
+                label="Suburb (optional)"
+                placeholder="e.g. Yaba"
+                [field]="address.suburb"
+                [attempted]="attempted()"
+              />
+              <app-text-field
+                [id]="'address-postal-' + address().value().id"
+                label="Postal code"
+                placeholder="e.g. 100001"
+                [field]="address.postalCode"
+                [attempted]="attempted()"
+              />
+            </div>
+            @if (!last) {
+              <mat-divider aria-hidden="true" />
+            }
+          }
+          <div class="address-actions">
+            <button mat-button type="button" (click)="addAddress()">
+              <mat-icon fontSet="material-symbols-outlined" aria-hidden="true">add</mat-icon>
+              Add address
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </form>
+  }
+</div>

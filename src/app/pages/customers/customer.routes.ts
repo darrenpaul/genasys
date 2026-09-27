@@ -40,7 +40,8 @@ export const customerRoutes: Routes = [
       },
       {
         path: 'new',
-        loadComponent: () => import('./customer-form').then((page) => page.CustomerForm),
+        loadComponent: () =>
+          import('./customer-form/customer-form').then((page) => page.CustomerForm),
         title: 'Add customer — Genasys',
       },
       {
@@ -49,7 +50,8 @@ export const customerRoutes: Routes = [
         // The same component serves both create and edit; it checks whether
         // the parameter is present to decide which mode it is in.
         path: ':customerId/edit',
-        loadComponent: () => import('./customer-form').then((page) => page.CustomerForm),
+        loadComponent: () =>
+          import('./customer-form/customer-form').then((page) => page.CustomerForm),
         title: 'Edit customer — Genasys',
       },
     ],
