@@ -1,0 +1,22 @@
+/* .mat-mdc-form-field needed for specificity over Material's inline-flex. */
+app-search-field .mat-mdc-form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The suffix wrapper always exists (see search-field.html). When nothing is
+   projected into it, hide it and drop Material's suffix padding so a field
+   without a clear button lines up with a plain text field. `:empty` still
+   matches when the only child is the comment node an `@if` block leaves. */
+app-search-field .search-field-suffix:empty {
+  display: none;
+}
+app-search-field .mat-mdc-form-field-icon-suffix:has(> .search-field-suffix:empty) {
+  padding: 0;
+}
+/* Material also removes the wrapper's right padding whenever a suffix slot
+   exists. Put it back for the empty case, mirroring Material's own value, so
+   the input text ends where it does in a plain text field. */
+app-search-field .mat-mdc-form-field:has(.search-field-suffix:empty) .mat-mdc-text-field-wrapper {
+  padding-right: max(16px, var(--mdc-outlined-text-field-container-shape, 4px));
+}

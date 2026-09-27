@@ -1,0 +1,31 @@
+<div class="field-heading">
+  <label class="field-label" [for]="id()">{{ label() }}</label>
+  @if (error()) {
+    <p class="field-feedback" [id]="errorId()" role="alert">{{ error() }}</p>
+  }
+  <ng-content select="[fieldFeedback]" />
+</div>
+<mat-form-field appearance="outline" subscriptSizing="dynamic">
+  <input
+    #input
+    matInput
+    [id]="id()"
+    [placeholder]="placeholder()"
+    [disabled]="disabled()"
+    [value]="value()"
+    [required]="required()"
+    [attr.aria-invalid]="error() ? true : null"
+    [attr.aria-describedby]="describedby()"
+    [matAutocomplete]="autocomplete()!"
+  />
+  <ng-content select="mat-autocomplete" />
+  <!--
+    The suffix slot is declared HERE, not left to the consumer. mat-form-field
+    finds suffixes with a content query, and Angular content queries do not see
+    elements that were re-projected through another component's <ng-content>.
+    So a consumer's `matIconSuffix` button would be ignored and rendered after
+    the input on its own line. Instead this wrapper carries `matIconSuffix` and
+    the consumer marks its button with the plain `fieldSuffix` attribute.
+  -->
+  <div matIconSuffix class="search-field-suffix"><ng-content select="[fieldSuffix]" /></div>
+</mat-form-field>
