@@ -1,38 +1,67 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 
 <header>
-  <mat-toolbar>
+  <mat-toolbar class="app-toolbar">
     <img
       class="brand-logo"
-      ngSrc="/Genasys-Logo-1.webp"
+      ngSrc="/genasys-logo.webp"
       alt="Genasys"
       width="300"
       height="45"
       priority
     />
-    <nav aria-label="Primary navigation">
-      <a
-        mat-button
-        routerLink="/customers"
-        routerLinkActive="active-link"
-        [routerLinkActiveOptions]="navLinkMatchOptions"
-        ariaCurrentWhenActive="page"
-      >
-        Customers
-      </a>
-      <a
-        mat-button
-        routerLink="/quotes"
-        routerLinkActive="active-link"
-        [routerLinkActiveOptions]="navLinkMatchOptions"
-        ariaCurrentWhenActive="page"
-      >
-        Quotes
-      </a>
-    </nav>
+    <button
+      class="menu-toggle"
+      mat-button
+      type="button"
+      aria-controls="primary-navigation"
+      [attr.aria-expanded]="drawer.opened"
+      (click)="drawer.toggle()"
+    >
+      {{ drawer.opened ? 'Close menu' : 'Menu' }}
+    </button>
   </mat-toolbar>
 </header>
 
-<main id="main-content" tabindex="-1">
-  <router-outlet (activate)="focusPageHeading()" />
-</main>
+<mat-sidenav-container class="shell-container">
+  <mat-sidenav #drawer class="sidebar" [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()">
+    <mat-nav-list id="primary-navigation" aria-label="Primary navigation">
+      <a
+        mat-list-item
+        routerLink="/customers"
+        routerLinkActive
+        #customersActive="routerLinkActive"
+        [routerLinkActiveOptions]="navLinkMatchOptions"
+        ariaCurrentWhenActive="page"
+        [activated]="customersActive.isActive"
+        (click)="closeMobileNavigation(drawer)"
+      >
+        <mat-icon matListItemIcon fontSet="material-symbols-outlined" aria-hidden="true">
+          group
+        </mat-icon>
+        Customers
+      </a>
+      <a
+        mat-list-item
+        routerLink="/quotes"
+        routerLinkActive
+        #quotesActive="routerLinkActive"
+        [routerLinkActiveOptions]="navLinkMatchOptions"
+        ariaCurrentWhenActive="page"
+        [activated]="quotesActive.isActive"
+        (click)="closeMobileNavigation(drawer)"
+      >
+        <mat-icon matListItemIcon fontSet="material-symbols-outlined" aria-hidden="true">
+          request_quote
+        </mat-icon>
+        Quotes
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <main id="main-content" tabindex="-1">
+      <router-outlet (activate)="focusPageHeading()" />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>
