@@ -1,0 +1,33 @@
+app-page-toolbar {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 4rem;
+  background-color: #2f3351;
+  color: #fff;
+  --mat-button-filled-container-color: #fff;
+  --mat-button-filled-label-text-color: #2f3351;
+}
+
+app-page-toolbar .toolbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1440px;
+  min-height: 4rem;
+  padding: 0.75rem 1rem;
+}
+
+app-page-toolbar h1 {
+  margin: 0;
+}
+
+app-page-toolbar [mat-flat-button] {
+  --mat-button-filled-container-color: #007f7e;
+  --mat-button-filled-label-text-color: #fff;
+}

@@ -1,0 +1,10 @@
+<div class="toolbar-content">
+  <h1 #heading tabindex="-1">{{ title() }}</h1>
+  @if (action(); as action) {
+    <a mat-flat-button [routerLink]="action.link" [queryParams]="action.queryParams ?? null">
+      <mat-icon fontSet="material-symbols-outlined" aria-hidden="true">add</mat-icon>
+      {{ action.label }}
+    </a>
+  }
+  <ng-content />
+</div>
