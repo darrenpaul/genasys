@@ -13,6 +13,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { MatTooltip } from '@angular/material/tooltip';
 import { provideRouter } from '@angular/router';
 import { provideEffects } from '@ngrx/effects';
 import { provideState, provideStore, Store } from '@ngrx/store';
@@ -61,6 +63,10 @@ const rows: Customer[] = [
   },
 ];
 
+// Raw `/api/quotes` rows for the "Quotes" column: Maya (c2) has one quote,
+// Amina (c1) has none, so her quotes link renders disabled.
+const quotes = [{ id: 'q1', customerId: 'c2', amountInMinorUnits: 1000, status: 'draft' }];
+
 describe('Customers page', () => {
   beforeEach(async () => {
     // Mirrors the real `providers` in customer.routes.ts, plus the testing
@@ -89,6 +95,7 @@ describe('Customers page', () => {
     // made, wait for async work to settle, and render again.
     fixture.detectChanges();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -97,17 +104,110 @@ describe('Customers page', () => {
         cell.textContent?.trim(),
       );
     expect(names()).toEqual(['Maya Chen', 'Amina Okafor']);
+    expect(root.querySelector('.filter-results[role="status"]')?.textContent?.trim()).toBe(
+      '2 customers found.',
+    );
     const input = root.querySelector<HTMLInputElement>('input[matinput]')!;
+    expect(getComputedStyle(input.closest('mat-form-field')!).width).toBe('100%');
     input.value = 'lagos';
     input.dispatchEvent(new Event('input'));
     await fixture.whenStable();
     fixture.detectChanges();
     expect(names()).toEqual(['Amina Okafor']);
+    expect(root.querySelector('.filter-results[role="status"]')?.textContent?.trim()).toBe(
+      '1 customer found.',
+    );
     input.value = 'c1';
     input.dispatchEvent(new Event('input'));
     await fixture.whenStable();
     fixture.detectChanges();
     expect(names()).toEqual([]);
+    expect(root.querySelector('.filter-results[role="status"]')?.textContent?.trim()).toBe(
+      'No customers match your search.',
+    );
+    const clear = root.querySelector<HTMLButtonElement>(
+      'mat-form-field button[aria-label="Clear customer search"]',
+    )!;
+    expect(clear.querySelector('mat-icon[aria-hidden="true"]')?.textContent).toBe('close');
+    clear.click();
+    await fixture.whenStable();
+    expect(input.value).toBe('');
+    expect(document.activeElement).toBe(input);
+    expect(root.querySelector('button[aria-label="Clear customer search"]')).toBeNull();
+    expect(names()).toEqual(['Maya Chen', 'Amina Okafor']);
+    http.verify();
+  });
+
+  it('treats IDs matching object properties as having zero quotes when absent', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('td.mat-column-quotes')?.textContent?.trim()).toBe('0');
+    expect(root.querySelector('.quotes-button')?.getAttribute('aria-disabled')).toBe('true');
+    // NgRx's entity adapter does not support these IDs as entity keys, so
+    // exercise the counts lookup itself without inserting them into the store.
+    const component = fixture.componentInstance as unknown as {
+      quoteCount(customer: Customer): number | null;
+    };
+    for (const id of ['toString', 'constructor', '__proto__']) {
+      expect(component.quoteCount({ ...rows[0], id })).toBe(0);
+    }
+    http.verify();
+  });
+
+  it('right-aligns row actions in Quotes, Edit, Delete order', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const actions = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      'tr.mat-mdc-row .row-actions',
+    )!;
+    expect(getComputedStyle(actions).justifyContent).toBe('flex-end');
+    expect([...actions.children].map((button) => button.textContent?.trim())).toEqual([
+      'request_quote',
+      'edit',
+      'delete',
+    ]);
+    const quotesLink = actions.querySelector<HTMLAnchorElement>('.quotes-button')!;
+    expect(quotesLink.getAttribute('href')).toBe('/quotes?customerId=c2');
+    expect(quotesLink.getAttribute('aria-label')).toBe('View quotes for Maya Chen');
+    expect(quotesLink.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe(
+      'request_quote',
+    );
+    expect(
+      fixture.debugElement.query(By.css('.quotes-button')).injector.get(MatTooltip).message,
+    ).toBe('View quotes for Maya Chen');
+    const editLink = actions.querySelector<HTMLAnchorElement>('.edit-button')!;
+    expect(editLink.getAttribute('matButton')).toBe('tonal');
+    expect(editLink.classList.contains('mat-tonal-button')).toBe(true);
+    expect(editLink.getAttribute('aria-label')).toBe('Edit Maya Chen');
+    expect(
+      fixture.debugElement.query(By.css('.edit-button')).injector.get(MatTooltip).message,
+    ).toBe('Edit Maya Chen');
+    expect(editLink.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe(
+      'edit',
+    );
+    const deleteButton = actions.querySelector<HTMLButtonElement>('.delete-button')!;
+    expect(deleteButton.getAttribute('aria-label')).toBe('Delete Maya Chen');
+    expect(
+      fixture.debugElement.query(By.css('.delete-button')).injector.get(MatTooltip).message,
+    ).toBe('Delete Maya Chen');
+    expect(deleteButton.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe(
+      'delete',
+    );
+    expect(
+      getComputedStyle(deleteButton).getPropertyValue('--mat-button-filled-container-color'),
+    ).toBe('#b91c1c');
     http.verify();
   });
 
@@ -116,6 +216,7 @@ describe('Customers page', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -152,6 +253,7 @@ describe('Customers page', () => {
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -185,6 +287,7 @@ describe('Customers page', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     const store = TestBed.inject(Store);
     store.dispatch(customerActions.loadRequested());
@@ -199,6 +302,7 @@ describe('Customers page', () => {
     expect(retry).toBeTruthy();
     retry!.click();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     http.verify();
   });
 
@@ -211,6 +315,7 @@ describe('Customers page', () => {
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -223,6 +328,7 @@ describe('Customers page', () => {
     const next = TestBed.createComponent(Customers);
     next.detectChanges();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await next.whenStable();
     next.detectChanges();
     const freshButton = (next.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
@@ -245,6 +351,7 @@ describe('Customers page', () => {
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     TestBed.inject(Store).dispatch(
       customerActions.deleteCheckAllowed({ id: 'c1', token: 'old-page' }),
@@ -259,6 +366,7 @@ describe('Customers page', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -291,6 +399,7 @@ describe('Customers page', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush(quotes);
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -305,6 +414,84 @@ describe('Customers page', () => {
     expect(root.textContent).toContain('delete related quotes first');
     expect(root.querySelector('a[href="/quotes?customerId=c1"]')).toBeTruthy();
     http.expectNone('/api/customers/c1');
+    http.verify();
+  });
+
+  it('shows sortable quote counts and disables the quotes link when a customer has none', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/customers').flush(rows);
+    // Before the counts answer, the column shows a placeholder and the link stays usable.
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const cells = () =>
+      [...root.querySelectorAll('tr.mat-mdc-row td.quotes-cell')].map((cell) =>
+        cell.textContent?.trim(),
+      );
+    expect(cells()).toEqual(['—', '—']);
+    expect(root.querySelectorAll('a.quotes-button[aria-disabled="true"]').length).toBe(0);
+    http.expectOne('/api/quotes').flush([...quotes, { id: 'q2', customerId: 'c2' }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    // Default sort is by name: Maya (2 quotes) then Amina (0).
+    expect(cells()).toEqual(['2', '0']);
+    const aminaLink = root.querySelector<HTMLAnchorElement>(
+      'a.quotes-button[aria-label="No quotes for Amina Okafor"]',
+    )!;
+    expect(aminaLink.getAttribute('aria-disabled')).toBe('true');
+    // Without an href the anchor is out of the tab order by itself, like a
+    // disabled button, and there is nothing for a click or Enter to navigate to.
+    expect(aminaLink.hasAttribute('href')).toBe(false);
+    expect(aminaLink.hasAttribute('tabindex')).toBe(false);
+    expect(
+      fixture.debugElement
+        .query(By.css('a.quotes-button[aria-disabled="true"]'))
+        .injector.get(MatTooltip).message,
+    ).toBe('No quotes for Amina Okafor');
+    const mayaLink = root.querySelector<HTMLAnchorElement>(
+      'a.quotes-button[aria-label="View quotes for Maya Chen"]',
+    )!;
+    expect(mayaLink.getAttribute('aria-disabled')).toBeNull();
+    expect(mayaLink.getAttribute('href')).toBe('/quotes?customerId=c2');
+    // Sort by the Quotes column: ascending puts Amina (0) first.
+    const header = [...root.querySelectorAll<HTMLElement>('th')].find((th) =>
+      th.textContent?.includes('Quotes'),
+    )!;
+    header.querySelector<HTMLElement>('.mat-sort-header-container')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(cells()).toEqual(['0', '2']);
+    header.querySelector<HTMLElement>('.mat-sort-header-container')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(cells()).toEqual(['2', '0']);
+    http.verify();
+  });
+
+  it('keeps the quotes link usable when quote counts fail to load', async () => {
+    const fixture = TestBed.createComponent(Customers);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/customers').flush(rows);
+    http.expectOne('/api/quotes').flush('offline', { status: 503, statusText: 'Unavailable' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(
+      [...root.querySelectorAll('tr.mat-mdc-row td.quotes-cell')].map((cell) =>
+        cell.textContent?.trim(),
+      ),
+    ).toEqual(['—', '—']);
+    // No error banner: the customers themselves loaded fine.
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+    const links = [...root.querySelectorAll<HTMLAnchorElement>('a.quotes-button')];
+    expect(links.map((link) => link.getAttribute('aria-disabled'))).toEqual([null, null]);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/quotes?customerId=c2',
+      '/quotes?customerId=c1',
+    ]);
     http.verify();
   });
 });

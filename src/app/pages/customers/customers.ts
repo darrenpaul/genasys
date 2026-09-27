@@ -1,19 +1,22 @@
 import { Component, DestroyRef, effect, inject, signal, viewChild } from '@angular/core';
 import { Actions, ofType } from '@ngrx/effects';
-import { MatButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatFormField, MatSuffix } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatTooltip } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { customerActions, customerFeature } from './data-access/customer.store';
 import { Customer } from './data-access/customer.model';
-import { ConfirmDelete } from './ui/confirm-delete';
+import { ConfirmDelete } from '../../shared/confirm-delete/confirm-delete';
+import { PageToolbar } from '../../shared/page-toolbar/page-toolbar';
 
 // The `/customers` list page: a searchable, sortable, paginated Material table
 // with Edit/Delete per row.
@@ -34,30 +37,89 @@ import { ConfirmDelete } from './ui/confirm-delete';
   selector: 'app-customers',
   imports: [
     MatButton,
+    MatIconButton,
     MatFormField,
-    MatLabel,
+    MatSuffix,
+    MatIcon,
     MatInput,
     MatPaginator,
     MatSort,
     MatSortHeader,
     MatTableModule,
+    MatTooltip,
+    PageToolbar,
     RouterLink,
   ],
   templateUrl: './customers.html',
   styles: `
-    .table-scroll {
-      overflow-x: auto;
-    }
-    table {
-      min-width: 640px;
+    .search-field {
       width: 100%;
     }
-    .toolbar {
+    /*
+      Fixed layout: column widths come from the header cells below, not from
+      the content of whichever row happens to be longest. Rows stay aligned
+      while filtering, sorting and paging, and long values wrap inside their
+      column instead of pushing the others around. Material adds a
+      \`mat-column-<id>\` class to every cell of a column, keyed by
+      \`matColumnDef\`, which is what the width rules hook into.
+    */
+    table {
+      table-layout: fixed;
+      min-width: 960px;
+      width: 100%;
+    }
+    td.mat-mdc-cell {
+      overflow-wrap: anywhere;
+    }
+    .mat-column-name {
+      width: 18%;
+    }
+    .mat-column-email {
+      width: 26%;
+    }
+    .mat-column-nationality {
+      width: 14%;
+    }
+    .mat-column-cities {
+      width: 14%;
+    }
+    .mat-column-universities {
+      width: 20%;
+    }
+    .mat-column-quotes {
+      width: 96px;
+    }
+    .mat-column-actions {
+      width: 168px;
+    }
+    .quotes-cell {
+      text-align: right;
+    }
+    .row-actions {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
       flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+    .quotes-button,
+    .edit-button,
+    .delete-button {
+      min-width: 40px;
+    }
+    .quotes-button,
+    .delete-button {
+      --mat-button-filled-horizontal-padding: 8px;
+      --mat-button-filled-icon-spacing: 0px;
+      --mat-button-filled-icon-offset: 0px;
+    }
+    .edit-button {
+      --mat-button-tonal-horizontal-padding: 8px;
+      --mat-button-tonal-icon-spacing: 0px;
+      --mat-button-tonal-icon-offset: 0px;
+    }
+    .delete-button {
+      --mat-button-filled-container-color: #b91c1c;
+      --mat-button-filled-label-text-color: #fff;
     }
     .sr-only {
       position: absolute;
@@ -94,6 +156,9 @@ export class Customers {
   protected readonly status = this.store.selectSignal(customerFeature.selectLoadStatus);
   protected readonly error = this.store.selectSignal(customerFeature.selectError);
   protected readonly deletingId = this.store.selectSignal(customerFeature.selectDeletingId);
+  // `{ [customerId]: count }` for the "Quotes" column, or null until the
+  // separate quotes request has answered (see `quoteCount` below).
+  protected readonly quoteCounts = this.store.selectSignal(customerFeature.selectQuoteCounts);
 
   // --- Local UI state ------------------------------------------------------
   // `signal(initial)` is the writable equivalent of `ref(initial)`. Update it
@@ -116,6 +181,7 @@ export class Customers {
     'nationality',
     'cities',
     'universities',
+    'quotes',
     'actions',
   ];
 
@@ -168,6 +234,9 @@ export class Customers {
           return customer.nationality?.name.toLocaleLowerCase() ?? '';
         case 'email':
           return customer.email.toLocaleLowerCase();
+        case 'quotes':
+          // Unknown counts (-1) sort below zero so real numbers stay in order.
+          return this.quoteCount(customer) ?? -1;
         default:
           return '';
       }
@@ -176,7 +245,11 @@ export class Customers {
     // `effect()` is Angular's `watchEffect`: it runs once now and again whenever
     // a signal read inside it changes. We use three small effects, one per
     // dependency, so each re-runs only when its own signal changes.
+    // `quoteCounts()` is read here too: the table only re-sorts when `data`
+    // is assigned, and the "Quotes" column sorts by those counts, which
+    // usually arrive after the customers do.
     effect(() => {
+      this.quoteCounts();
       this.dataSource.data = this.customers();
     });
     // These two wire the sort header and paginator into the data source once
@@ -218,6 +291,15 @@ export class Customers {
     // Kick off the initial load. The `load` effect in customer.store.ts hears
     // this action, calls the API, and dispatches loadSucceeded/loadFailed.
     this.store.dispatch(customerActions.loadRequested());
+    this.store.dispatch(customerActions.quoteCountsRequested());
+  }
+
+  // Number of quotes for a row, or null while counts are still unknown. The
+  // template shows "—" and keeps the quotes link usable in that case, so a
+  // failed counts request never locks users out of a customer's quotes.
+  protected quoteCount(customer: Customer): number | null {
+    const counts = this.quoteCounts();
+    return counts ? (Object.hasOwn(counts, customer.id) ? counts[customer.id] : 0) : null;
   }
 
   // Template helper. Methods called from templates are fine in Angular but
@@ -249,6 +331,7 @@ export class Customers {
 
   protected retry(): void {
     this.store.dispatch(customerActions.loadRequested());
+    this.store.dispatch(customerActions.quoteCountsRequested());
   }
 
   // Delete flow, in order:
