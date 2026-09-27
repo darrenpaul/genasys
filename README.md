@@ -1,39 +1,68 @@
 # Genasys
 
-Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Customers and quotes can be listed, filtered, created, edited, and deleted through lazy-loaded Angular Material pages backed by NgRx and JSON Server. Quote amounts are stored as integer euro cents and displayed in EUR.
+Customer and quote management demo built with client-rendered Angular 22, Angular Material, NgRx, and JSON Server. Companion to the [step-by-step Angular tutorial](docs/angular-tutorial/README.md).
 
-## Runtime and installed versions
+## Quick start
 
-Use `nvm use` (from `.nvmrc`), then `npm ci`. Angular's [compatibility table](https://angular.dev/reference/versions) lists Node `^22.22.3` as supported for Angular 22; Node 22.22.3 and npm 10.9.8 were used for this baseline. Installed versions are fixed by `package-lock.json`:
-
-| Package                                  | Version       |
-| ---------------------------------------- | ------------- |
-| Angular / CLI                            | 22.2.0        |
-| Angular Material / CDK                   | 22.2.0        |
-| NgRx Store / Effects / Entity / Devtools | 22.0.1        |
-| JSON Server                              | 1.0.0-beta.15 |
-
-TypeScript and Angular templates use strict checking. Angular ESLint, Prettier, and Vitest are configured. No SSR or `AppModule` is used.
-
-## Local development
+Requires Node 22.22.3 (`.nvmrc`) and npm 10.9.8. Dependencies are locked in `package-lock.json`.
 
 ```bash
+nvm use
 npm ci
 npm run dev
 ```
 
-Open `http://localhost:4200/`. `dev` starts Angular and JSON Server together; `npm run start` and `npm run api` start them separately. JSON Server listens on `127.0.0.1:3000`. Angular's development proxy removes `/api` before forwarding: `http://localhost:4200/api/customers` maps to JSON Server's `/customers`. Browser services should use relative `/api` URLs. This proxy only exists during `ng serve`; production hosting needs its own API routing. `/external/universities` forwards to HipoLabs over HTTP from the development server, keeping browser calls same-origin. University searches translate country names HipoLabs spells differently (e.g. `US` → `United States`) using the selected ISO code. Production HTTPS hosting must provide a server-side proxy for this route; do not call HipoLabs HTTP directly from the browser. Nationalize receives only surname. Country choices use a bundled 250-entry snapshot from countries.dev (retrieved 2026-09-25; upstream redistribution license must be confirmed before production distribution); remote country refresh is optional and retryable. Nationalize and countries.dev are called over HTTPS from the browser.
+Open <http://localhost:4200/>. `npm run dev` starts both Angular and JSON Server; the API listens on `127.0.0.1:3000`. For separate terminals, run `npm run api` and `npm run start` instead.
 
-`server/db.seed.json` is tracked and contains fake customers and sample EUR quotes across all statuses. Existing ignored `server/db.json` is not overwritten by seed changes; use `npm run db:reset` only if you intend to discard local records. `npm run api` creates ignored `server/db.json` on first run, then preserves edits across restarts. `npm run db:reset` **overwrites local database**, restoring seed. JSON Server 1.0.0-beta.15 generates its own string ID on POST even if request includes `id`; use returned ID for later requests. Customer nationality is a required, explicitly confirmed `{ code, name }` country (Nationalize predictions never auto-select). University is optional, chosen from search results and saved with a nullable validated HTTP(S) website; API retains university array format but new saves contain at most one. Editing older records with multiple universities keeps first and removes others on save. `createdAt` is set on create and preserved on edit. Customer state is owned by NgRx; table filter/sort state is local. JSON Server is a development mock, not a production backend. Before deleting a customer, an NgRx effect checks `/api/quotes?customerId=<id>` and the delete effect rechecks it; malformed or failed checks block deletion. Customer-specific quote links use `/quotes?customerId=<id>`; customer and status filters stay in URL. A real API must enforce quote-reference guards atomically server-side: frontend checks alone cannot eliminate check-then-delete races. Do not put secrets in browser configuration.
+> **Local data:** `npm run api` copies tracked `server/db.seed.json` to ignored `server/db.json` only when the latter does not exist. Changes to `server/db.json` survive restarts. `npm run db:reset` **overwrites local records** with the seed.
 
-## Quality checks
+## What the app does
+
+- List, filter, sort, create, edit, and delete customers and quotes. Feature routes and their NgRx state/effects load lazily.
+- Follow a customer's quote link to `/quotes?customerId=<id>`; customer and status filters remain in the URL.
+- Manage customer addresses, confirm a nationality, and optionally select one university. Nationalize suggestions never auto-select a country. University websites are saved only when valid HTTP(S) links; the API keeps array format for compatibility with older records.
+- Store quote amounts as integer euro cents and display them in EUR. Quotes support draft, submitted, approved, and declined statuses.
+- Block customer deletion when quotes reference that customer. The app checks `/api/quotes?customerId=<id>` before confirmation and again before deletion; failed or malformed checks also block deletion.
+
+`createdAt` is set on creation and preserved on edit. JSON Server 1.0.0-beta.15 generates string IDs on POST; clients use the returned ID for later requests. Editing an older customer with multiple universities retains only the first on save.
+
+## Project layout
+
+| Path                       | Purpose                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| `src/app/pages/customers/` | Customer pages, form, NgRx feature, API, enrichment lookups |
+| `src/app/pages/quotes/`    | Quote pages, form, NgRx feature, API                        |
+| `src/app/shared/`          | Reusable UI components                                      |
+| `src/app/app.routes.ts`    | Lazy feature routes                                         |
+| `server/db.seed.json`      | Sample customers and EUR quotes across all statuses         |
+| `proxy.conf.json`          | Development API and university-search proxy                 |
+| `docs/angular-tutorial/`   | Tutorial chapters and design explanations                   |
+
+Standalone components, strict TypeScript/templates, and Signal Forms are used; there is no SSR or `AppModule`.
+
+## API and external services
+
+| Browser URL                       | Destination in development        | Notes                                                                                                 |
+| --------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `/api/*`                          | JSON Server at `127.0.0.1:3000/*` | Angular strips `/api`; use relative URLs in browser services.                                         |
+| `/external/universities`          | HipoLabs `/search`                | Same-origin browser request; development server proxies to HTTP upstream.                             |
+| `https://api.nationalize.io`      | Nationalize                       | HTTPS browser request sends surname only.                                                             |
+| `https://countries.dev/countries` | countries.dev                     | Optional, retryable HTTPS refresh; bundled 250-entry country snapshot keeps picker available offline. |
+
+University search translates selected ISO codes where HipoLabs country names differ (for example `US` → `United States`). The bundled country snapshot was retrieved 2026-09-25. **Confirm upstream redistribution license before production distribution.** External lookups may fail or be rate-limited; core local data uses JSON Server.
+
+## Checks
 
 ```bash
-npm run test         # one Vitest run
-npm run test:watch   # interactive watch mode
+npm run test          # single Vitest run
+npm run test:watch    # watch mode
 npm run lint
 npm run format:check
 npm run build
 ```
 
-`npm run format` writes formatting changes. `npm run watch` watches development builds. No browser-based end-to-end runner is configured; check browser console manually when running app.
+`npm run format` writes formatting changes; `npm run watch` watches development builds. No browser-based end-to-end runner is configured; manually check browser console during development.
+
+## Production considerations
+
+JSON Server is a development mock, not a production backend. `ng serve` proxies do not exist in production: hosting must route `/api` to a real API and proxy `/external/universities` server-side (HTTPS browser pages must not call HipoLabs HTTP directly). A real API must enforce customer/quote reference rules atomically; frontend checks cannot prevent check-then-delete races. Do not put secrets in browser configuration. See [production and security considerations](docs/angular-tutorial/16-production-considerations.md).
