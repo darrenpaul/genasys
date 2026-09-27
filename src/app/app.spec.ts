@@ -39,11 +39,11 @@ describe('App shell', () => {
     expect(skipLink?.textContent).toContain('Skip to main content');
     expect(skipLink?.getAttribute('href')).toBe('#main-content');
     const toolbar = root.querySelector('header mat-toolbar');
-    expect(toolbar?.querySelector('span')?.textContent).toBe('Genesys');
+    expect(toolbar?.querySelector('span')?.textContent).toBe('Genasys');
     expect(toolbar?.querySelector('nav[aria-label="Primary navigation"]')).toBeTruthy();
     expect(toolbar?.querySelectorAll('mat-toolbar-row')).toHaveLength(0);
     expect(root.querySelector('main#main-content h1')?.textContent).toBe('Customers');
-    expect(document.title).toBe('Customers — Genesys');
+    expect(document.title).toBe('Customers — Genasys');
   });
 
   it('redirects root to Customers', async () => {
@@ -65,7 +65,7 @@ describe('App shell', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('main h1')?.textContent).toBe('Page not found');
     expect(root.querySelector('main a[href="/customers"]')?.textContent).toContain('Customers');
-    expect(document.title).toBe('Page not found — Genesys');
+    expect(document.title).toBe('Page not found — Genasys');
 
     await router.navigateByUrl('/customers/missing');
     await fixture.whenStable();
@@ -96,7 +96,7 @@ describe('App shell', () => {
     expect(quotes.getAttribute('aria-current')).toBe('page');
     expect(quotes.classList.contains('active-link')).toBe(true);
     expect(root.querySelector('main h1')?.textContent).toBe('Quotes');
-    expect(document.title).toBe('Quotes — Genesys');
+    expect(document.title).toBe('Quotes — Genasys');
     expect(document.activeElement).toBe(root.querySelector('main h1'));
 
     const heading = root.querySelector<HTMLElement>('main h1')!;

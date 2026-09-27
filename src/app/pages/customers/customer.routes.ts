@@ -36,12 +36,12 @@ export const customerRoutes: Routes = [
         // `.then((page) => page.Customers)` picks the named export from the module.
         loadComponent: () => import('./customers').then((page) => page.Customers),
         // Angular sets `document.title` from this automatically on navigation.
-        title: 'Customers — Genesys',
+        title: 'Customers — Genasys',
       },
       {
         path: 'new',
         loadComponent: () => import('./customer-form').then((page) => page.CustomerForm),
-        title: 'Add customer — Genesys',
+        title: 'Add customer — Genasys',
       },
       {
         // `:customerId` is a route parameter, read in the form via
@@ -50,7 +50,7 @@ export const customerRoutes: Routes = [
         // the parameter is present to decide which mode it is in.
         path: ':customerId/edit',
         loadComponent: () => import('./customer-form').then((page) => page.CustomerForm),
-        title: 'Edit customer — Genesys',
+        title: 'Edit customer — Genasys',
       },
     ],
   },

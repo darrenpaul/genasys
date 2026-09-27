@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "genesys": {
+    "genasys": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -58,10 +58,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "genesys:build:production"
+              "buildTarget": "genasys:build:production"
             },
             "development": {
-              "buildTarget": "genesys:build:development"
+              "buildTarget": "genasys:build:development"
             }
           },
           "defaultConfiguration": "development"

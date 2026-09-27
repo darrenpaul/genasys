@@ -37,19 +37,19 @@ export const quoteRoutes: Routes = [
       {
         path: '',
         loadComponent: () => import('./quotes').then((page) => page.Quotes),
-        title: 'Quotes — Genesys',
+        title: 'Quotes — Genasys',
       },
       // `/quotes/new` and `/quotes/:quoteId/edit` share one component. It reads
       // `ActivatedRoute.paramMap` to decide whether it is creating or editing.
       {
         path: 'new',
         loadComponent: () => import('./quote-form').then((page) => page.QuoteForm),
-        title: 'Add quote — Genesys',
+        title: 'Add quote — Genasys',
       },
       {
         path: ':quoteId/edit',
         loadComponent: () => import('./quote-form').then((page) => page.QuoteForm),
-        title: 'Edit quote — Genesys',
+        title: 'Edit quote — Genasys',
       },
     ],
   },

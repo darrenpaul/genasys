@@ -1,4 +1,4 @@
-# Genesys
+# Genasys
 
 Client-rendered, standalone Angular 22 workspace for the [Customer and Quote Management tutorial](docs/angular-tutorial/README.md). Customers and quotes can be listed, filtered, created, edited, and deleted through lazy-loaded Angular Material pages backed by NgRx and JSON Server. Quote amounts are stored as integer euro cents and displayed in EUR.
 
