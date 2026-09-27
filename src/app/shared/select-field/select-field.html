@@ -1,0 +1,30 @@
+<!--
+  See select-field.ts for the component's contract.
+
+  `(input)` on <app-search-field> works without an @output there: the native
+  input event bubbles up from the inner <input>.
+-->
+<app-search-field
+  [id]="id()"
+  [label]="label()"
+  [placeholder]="placeholder()"
+  [value]="query()"
+  [error]="showError() ? errorText() : ''"
+  (input)="onInput($event)"
+>
+  <!-- `[value]` is the option's stored value; `displayWith` maps it back to
+       the label for the input. `autoActiveFirstOption` lets Enter pick the
+       top match after typing, like a native select's type-to-jump. -->
+  <mat-autocomplete
+    autoActiveFirstOption
+    [displayWith]="displayLabel"
+    (optionSelected)="choose($event)"
+    (closed)="onPanelClosed()"
+  >
+    @for (option of matching(); track option.value) {
+      <mat-option [value]="option.value">{{ option.label }}</mat-option>
+    } @empty {
+      <mat-option disabled>No matches</mat-option>
+    }
+  </mat-autocomplete>
+</app-search-field>
