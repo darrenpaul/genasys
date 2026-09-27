@@ -1,4 +1,4 @@
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, NgOptimizedImage } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatToolbar } from '@angular/material/toolbar';
@@ -6,13 +6,18 @@ import { IsActiveMatchOptions, RouterLink, RouterLinkActive, RouterOutlet } from
 
 @Component({
   selector: 'app-shell',
-  imports: [MatButton, MatToolbar, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [MatButton, MatToolbar, NgOptimizedImage, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app-shell.html',
   styles: `
     .skip-link:not(:focus) {
       position: absolute;
       clip-path: inset(50%);
       white-space: nowrap;
+    }
+
+    .brand-logo {
+      width: clamp(7.5rem, 35vw, 9.375rem);
+      height: auto;
     }
 
     .active-link {

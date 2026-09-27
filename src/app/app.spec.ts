@@ -39,7 +39,9 @@ describe('App shell', () => {
     expect(skipLink?.textContent).toContain('Skip to main content');
     expect(skipLink?.getAttribute('href')).toBe('#main-content');
     const toolbar = root.querySelector('header mat-toolbar');
-    expect(toolbar?.querySelector('span')?.textContent).toBe('Genasys');
+    const logo = toolbar?.querySelector<HTMLImageElement>('img.brand-logo');
+    expect(logo?.getAttribute('src')).toContain('/Genasys-Logo-1.webp');
+    expect(logo?.alt).toBe('Genasys');
     expect(toolbar?.querySelector('nav[aria-label="Primary navigation"]')).toBeTruthy();
     expect(toolbar?.querySelectorAll('mat-toolbar-row')).toHaveLength(0);
     expect(root.querySelector('main#main-content h1')?.textContent).toBe('Customers');
