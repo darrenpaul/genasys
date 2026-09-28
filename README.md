@@ -1,6 +1,6 @@
 # Genasys
 
-Customer and quote management demo built with client-rendered Angular 22, Angular Material, NgRx, and JSON Server. Companion to the [step-by-step Angular tutorial](docs/angular-tutorial/README.md).
+Customer and quote management demo built with client-rendered Angular 22, Angular Material, NgRx, and JSON Server.
 
 ## Quick start
 
@@ -36,9 +36,9 @@ Open <http://localhost:4200/>. `npm run dev` starts both Angular and JSON Server
 | `src/app/app.routes.ts`    | Lazy feature routes                                         |
 | `server/db.seed.json`      | Sample customers and EUR quotes across all statuses         |
 | `proxy.conf.json`          | Development API and university-search proxy                 |
-| `docs/angular-tutorial/`   | Tutorial chapters and design explanations                   |
+| `agent-sessions/`          | AI prompts and development conversation records             |
 
-Standalone components, strict TypeScript/templates, and Signal Forms are used; there is no SSR or `AppModule`.
+Standalone components, strict TypeScript/templates, and Signal Forms are used; there is no SSR or `AppModule`. Some source comments compare Angular concepts with Vue as learning aids; the app does not use Vue or depend on it.
 
 ## API and external services
 
@@ -50,6 +50,10 @@ Standalone components, strict TypeScript/templates, and Signal Forms are used; t
 | `https://countries.dev/countries` | countries.dev                     | Optional, retryable HTTPS refresh; bundled 250-entry country snapshot keeps picker available offline. |
 
 University search translates selected ISO codes where HipoLabs country names differ (for example `US` → `United States`). The bundled country snapshot was retrieved 2026-09-25. **Confirm upstream redistribution license before production distribution.** External lookups may fail or be rate-limited; core local data uses JSON Server.
+
+## AI usage
+
+AI was used for Tasks 1–5, including Tasks 2–4. Prompts and follow-up requests are recorded as `USER:` entries in [`agent-sessions/1-implement-routing.md`](agent-sessions/1-implement-routing.md), [`agent-sessions/2-customer-management-page.md`](agent-sessions/2-customer-management-page.md), [`agent-sessions/3-quote-management-page.md`](agent-sessions/3-quote-management-page.md) (including Task 4), and [`agent-sessions/5-enrichment.md`](agent-sessions/5-enrichment.md). These records contain assistant responses as well. No separate Task 4 session exists.
 
 ## Checks
 
@@ -65,4 +69,4 @@ npm run build
 
 ## Production considerations
 
-JSON Server is a development mock, not a production backend. `ng serve` proxies do not exist in production: hosting must route `/api` to a real API and proxy `/external/universities` server-side (HTTPS browser pages must not call HipoLabs HTTP directly). A real API must enforce customer/quote reference rules atomically; frontend checks cannot prevent check-then-delete races. Do not put secrets in browser configuration. See [production and security considerations](docs/angular-tutorial/16-production-considerations.md).
+JSON Server is a development mock, not a production backend. `ng serve` proxies do not exist in production: hosting must route `/api` to a real API and proxy `/external/universities` server-side (HTTPS browser pages must not call HipoLabs HTTP directly). A real API must enforce customer/quote reference rules atomically; frontend checks cannot prevent check-then-delete races. Do not put secrets in browser configuration.
