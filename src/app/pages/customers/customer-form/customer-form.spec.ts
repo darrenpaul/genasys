@@ -414,7 +414,7 @@ describe('Customer form', () => {
     expect(options.filter((option) => option.textContent?.includes('Nigeria'))).toHaveLength(1);
     const prediction = options.find((option) => option.textContent?.includes('Nigeria')) as
       HTMLElement | undefined;
-    expect(prediction?.textContent?.trim()).toBe('🇳🇬 Nigeria');
+    expect(prediction?.textContent?.trim()).toBe('🇳🇬 Nigeria — 74%');
     expect(options.some((option) => option.textContent?.includes('Afghanistan'))).toBe(true);
     prediction!.click();
     fixture.detectChanges();
@@ -425,7 +425,7 @@ describe('Customer form', () => {
     fixture.detectChanges();
     expect(
       [...document.querySelectorAll('mat-option')].some(
-        (option) => option.textContent?.trim() === '🇦🇺 Australia',
+        (option) => option.textContent?.trim() === '🇦🇺 Australia — 22%',
       ),
     ).toBe(true);
   });

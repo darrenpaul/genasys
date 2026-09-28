@@ -146,7 +146,7 @@ describe('CountrySelect', () => {
     fixture.detectChanges();
     expect(groups()).toEqual(['Suggested countries', 'All countries']);
     expect(options().filter((option) => option.textContent?.includes('Nigeria'))).toHaveLength(1);
-    expect(options()[0].textContent?.trim()).toBe('🇳🇬 Nigeria');
+    expect(options()[0].textContent?.trim()).toBe('🇳🇬 Nigeria — 70%');
   });
 
   it('follows the value from the parent, shows errors, and focuses on request', () => {

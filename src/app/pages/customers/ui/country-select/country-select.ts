@@ -1,3 +1,4 @@
+import { PercentPipe } from '@angular/common';
 import { Component, computed, input, linkedSignal, model, output, viewChild } from '@angular/core';
 import {
   MatAutocomplete,
@@ -43,7 +44,7 @@ import { Country, Prediction } from '@app/pages/customers/data-access/enrichment
     '[attr.id]': 'null',
     '(focusout)': 'onFocusOut()',
   },
-  imports: [SearchField, MatButton, MatAutocompleteModule],
+  imports: [PercentPipe, SearchField, MatButton, MatAutocompleteModule],
   templateUrl: './country-select.html',
 })
 export class CountrySelect {

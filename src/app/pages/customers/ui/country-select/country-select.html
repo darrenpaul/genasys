@@ -39,7 +39,7 @@
         @for (prediction of matchingPredictions(); track prediction.country.code) {
           <mat-option [value]="prediction.country.name">
             <span aria-hidden="true">{{ prediction.country.flag }}</span>
-            {{ prediction.country.name }}
+            {{ prediction.country.name }} — {{ prediction.probability | percent: '1.0-1' }}
           </mat-option>
         }
       </mat-optgroup>
