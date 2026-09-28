@@ -359,11 +359,15 @@ describe('Customer form', () => {
     type(root, 'Street', 'Maple Lane');
     type(root, 'City', 'Lagos');
     type(root, 'Postal code', '100001');
+    const country = input(root, 'Nationality');
+    country.scrollIntoView = vi.fn(); // jsdom does not implement this browser API.
     root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await fixture.whenStable();
     const http = TestBed.inject(HttpTestingController);
     http.expectNone('/api/customers');
     expect(root.textContent).toContain('Choose a country.');
+    expect(country.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'center' });
+    expect(document.activeElement).toBe(country);
     // Nationality must be explicitly confirmed, not inferred from surname.
     chooseCountry(root, fixture, http);
     root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();

@@ -169,9 +169,9 @@ describe('Customers page', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const actions = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
-      'tr.mat-mdc-row .row-actions',
-    )!;
+    const actions = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('a.edit-button[aria-label="Edit Maya Chen"]')!
+      .closest<HTMLElement>('.row-actions')!;
     expect(getComputedStyle(actions).justifyContent).toBe('flex-end');
     expect([...actions.children].map((button) => button.textContent?.trim())).toEqual([
       'request_quote',
@@ -185,14 +185,18 @@ describe('Customers page', () => {
       'request_quote',
     );
     expect(
-      fixture.debugElement.query(By.css('.quotes-button')).injector.get(MatTooltip).message,
+      fixture.debugElement
+        .query(By.css('a.quotes-button[aria-label="View quotes for Maya Chen"]'))
+        .injector.get(MatTooltip).message,
     ).toBe('View quotes for Maya Chen');
     const editLink = actions.querySelector<HTMLAnchorElement>('.edit-button')!;
     expect(editLink.getAttribute('matButton')).toBe('tonal');
     expect(editLink.classList.contains('mat-tonal-button')).toBe(true);
     expect(editLink.getAttribute('aria-label')).toBe('Edit Maya Chen');
     expect(
-      fixture.debugElement.query(By.css('.edit-button')).injector.get(MatTooltip).message,
+      fixture.debugElement
+        .query(By.css('a.edit-button[aria-label="Edit Maya Chen"]'))
+        .injector.get(MatTooltip).message,
     ).toBe('Edit Maya Chen');
     expect(editLink.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe(
       'edit',
@@ -200,7 +204,9 @@ describe('Customers page', () => {
     const deleteButton = actions.querySelector<HTMLButtonElement>('.delete-button')!;
     expect(deleteButton.getAttribute('aria-label')).toBe('Delete Maya Chen');
     expect(
-      fixture.debugElement.query(By.css('.delete-button')).injector.get(MatTooltip).message,
+      fixture.debugElement
+        .query(By.css('button.delete-button[aria-label="Delete Maya Chen"]'))
+        .injector.get(MatTooltip).message,
     ).toBe('Delete Maya Chen');
     expect(deleteButton.querySelector('mat-icon[aria-hidden="true"]')?.textContent?.trim()).toBe(
       'delete',
