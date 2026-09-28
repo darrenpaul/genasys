@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { provideEffects } from '@ngrx/effects';
 import { provideStore } from '@ngrx/store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
-import { routes } from './app.routes';
+import { routes } from '@app/app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [

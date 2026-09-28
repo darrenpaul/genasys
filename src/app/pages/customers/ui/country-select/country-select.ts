@@ -5,9 +5,9 @@ import {
   MatAutocompleteSelectedEvent,
 } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
-import { SearchField } from '../../../../shared/search-field/search-field';
-import { ConfirmedCountry } from '../../data-access/customer.model';
-import { Country, Prediction } from '../../data-access/enrichment-api';
+import { SearchField } from '@app/shared/search-field/search-field';
+import { ConfirmedCountry } from '@app/pages/customers/data-access/customer.model';
+import { Country, Prediction } from '@app/pages/customers/data-access/enrichment-api';
 
 // A searchable country picker: <app-search-field> plus an autocomplete panel
 // with two groups, surname-based "Suggested countries" first and then "All

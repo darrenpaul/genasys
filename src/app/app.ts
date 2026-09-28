@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { AppShell } from './shell/app-shell';
+import { AppShell } from '@app/shell/app-shell';
 
 @Component({
   imports: [AppShell],

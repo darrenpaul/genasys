@@ -50,7 +50,7 @@ import {
   Customer,
   CustomerDraft,
   University,
-} from '../data-access/customer.model';
+} from '@app/pages/customers/data-access/customer.model';
 import {
   Country,
   CountriesApi,
@@ -59,12 +59,16 @@ import {
   Prediction,
   UniversitiesApi,
   UniversityOption,
-} from '../data-access/enrichment-api';
-import { customerActions, customerFeature, selectCustomer } from '../data-access/customer.store';
-import { PageToolbar } from '../../../shared/page-toolbar/page-toolbar';
-import { SearchField } from '../../../shared/search-field/search-field';
-import { TextField } from '../../../shared/text-field/text-field';
-import { CountrySelect } from '../ui/country-select/country-select';
+} from '@app/pages/customers/data-access/enrichment-api';
+import {
+  customerActions,
+  customerFeature,
+  selectCustomer,
+} from '@app/pages/customers/data-access/customer.store';
+import { PageToolbar } from '@app/shared/page-toolbar/page-toolbar';
+import { SearchField } from '@app/shared/search-field/search-field';
+import { TextField } from '@app/shared/text-field/text-field';
+import { CountrySelect } from '@app/pages/customers/ui/country-select/country-select';
 
 // One component serves both `/customers/new` and `/customers/:customerId/edit`.
 // It decides which mode it is in by whether the route has a `customerId`.

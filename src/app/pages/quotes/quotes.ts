@@ -31,11 +31,11 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { take } from 'rxjs';
-import { Customer } from '../customers/data-access/customer.model';
-import { ConfirmDelete } from '../../shared/confirm-delete/confirm-delete';
-import { Quote, isQuoteStatus, quoteStatuses } from './data-access/quote.model';
-import { quoteActions, quoteFeature } from './data-access/quote.store';
-import { PageToolbar } from '../../shared/page-toolbar/page-toolbar';
+import { Customer } from '@app/pages/customers/data-access/customer.model';
+import { ConfirmDelete } from '@app/shared/confirm-delete/confirm-delete';
+import { Quote, isQuoteStatus, quoteStatuses } from '@app/pages/quotes/data-access/quote.model';
+import { quoteActions, quoteFeature } from '@app/pages/quotes/data-access/quote.store';
+import { PageToolbar } from '@app/shared/page-toolbar/page-toolbar';
 
 // A quote plus the joined customer name, which is what the table displays and
 // sorts on. The store keeps quotes and customers separate; this page joins them.

@@ -18,8 +18,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Customer } from '../../customers/data-access/customer.model';
-import { Quote, QuoteDraft } from './quote.model';
+import { Customer } from '@app/pages/customers/data-access/customer.model';
+import { Quote, QuoteDraft } from '@app/pages/quotes/data-access/quote.model';
 
 // `@Service()` registers this class as an app-wide singleton, the Angular 22
 // shorthand for `@Injectable({ providedIn: 'root' })`. Anyone can then call

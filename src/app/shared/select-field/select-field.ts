@@ -13,7 +13,7 @@ import {
   MatAutocompleteSelectedEvent,
   MatOption,
 } from '@angular/material/autocomplete';
-import { SearchField } from '../search-field/search-field';
+import { SearchField } from '@app/shared/search-field/search-field';
 
 /** One choice in an <app-select-field>. */
 export interface SelectOption {

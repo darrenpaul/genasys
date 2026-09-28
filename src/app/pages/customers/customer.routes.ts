@@ -1,8 +1,8 @@
 import { Routes } from '@angular/router';
 import { provideEffects } from '@ngrx/effects';
 import { provideState } from '@ngrx/store';
-import { customerEffects, customerFeature } from './data-access/customer.store';
-import { CustomerQuotesApi, CustomersApi } from './data-access/customers-api';
+import { customerEffects, customerFeature } from '@app/pages/customers/data-access/customer.store';
+import { CustomerQuotesApi, CustomersApi } from '@app/pages/customers/data-access/customers-api';
 
 // Child routes for everything under `/customers`. The app-level routes file
 // lazy-loads this whole array, so none of this code is downloaded until the

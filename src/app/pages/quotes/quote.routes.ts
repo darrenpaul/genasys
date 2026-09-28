@@ -12,8 +12,8 @@
 import { Routes } from '@angular/router';
 import { provideEffects } from '@ngrx/effects';
 import { provideState } from '@ngrx/store';
-import { quoteEffects, quoteFeature } from './data-access/quote.store';
-import { QuoteCustomersApi, QuotesApi } from './data-access/quotes-api';
+import { quoteEffects, quoteFeature } from '@app/pages/quotes/data-access/quote.store';
+import { QuoteCustomersApi, QuotesApi } from '@app/pages/quotes/data-access/quotes-api';
 
 export const quoteRoutes: Routes = [
   {

@@ -26,10 +26,10 @@ import {
   props,
 } from '@ngrx/store';
 import { catchError, exhaustMap, map, of, switchMap, tap } from 'rxjs';
-import { Customer } from '../../customers/data-access/customer.model';
-import { NotificationService } from '../../../shell/notification.service';
-import { Quote, QuoteDraft, QuoteStatus } from './quote.model';
-import { QuoteCustomersApi, QuotesApi } from './quotes-api';
+import { Customer } from '@app/pages/customers/data-access/customer.model';
+import { NotificationService } from '@app/shell/notification.service';
+import { Quote, QuoteDraft, QuoteStatus } from '@app/pages/quotes/data-access/quote.model';
+import { QuoteCustomersApi, QuotesApi } from '@app/pages/quotes/data-access/quotes-api';
 
 // One action creator per event: 'Load requested' becomes
 // `quoteActions.loadRequested()` with the type string '[Quotes] Load requested'

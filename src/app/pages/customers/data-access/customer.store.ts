@@ -12,15 +12,15 @@ import {
 } from '@ngrx/store';
 import { Router } from '@angular/router';
 import { catchError, exhaustMap, map, of, switchMap, takeUntil, tap } from 'rxjs';
-import { NotificationService } from '../../../shell/notification.service';
-import { Customer, CustomerDraft } from './customer.model';
+import { NotificationService } from '@app/shell/notification.service';
+import { Customer, CustomerDraft } from '@app/pages/customers/data-access/customer.model';
 import {
   countQuotesByCustomer,
   CustomerQuotesApi,
   CustomersApi,
   hasRelatedQuotes,
   QuoteCounts,
-} from './customers-api';
+} from '@app/pages/customers/data-access/customers-api';
 
 // ---------------------------------------------------------------------------
 // NgRx in one paragraph, for Vue developers

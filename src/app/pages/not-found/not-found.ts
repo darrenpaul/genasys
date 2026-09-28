@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { PageToolbar } from '../../shared/page-toolbar/page-toolbar';
+import { PageToolbar } from '@app/shared/page-toolbar/page-toolbar';
 
 @Component({
   selector: 'app-not-found',

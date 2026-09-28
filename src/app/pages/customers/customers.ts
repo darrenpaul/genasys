@@ -13,10 +13,10 @@ import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { customerActions, customerFeature } from './data-access/customer.store';
-import { Customer } from './data-access/customer.model';
-import { ConfirmDelete } from '../../shared/confirm-delete/confirm-delete';
-import { PageToolbar } from '../../shared/page-toolbar/page-toolbar';
+import { customerActions, customerFeature } from '@app/pages/customers/data-access/customer.store';
+import { Customer } from '@app/pages/customers/data-access/customer.model';
+import { ConfirmDelete } from '@app/shared/confirm-delete/confirm-delete';
+import { PageToolbar } from '@app/shared/page-toolbar/page-toolbar';
 
 // The `/customers` list page: a searchable, sortable, paginated Material table
 // with Edit/Delete per row.

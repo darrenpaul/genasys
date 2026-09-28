@@ -25,11 +25,11 @@ import {
   isQuoteStatus,
   parseEuroCents,
   quoteStatuses,
-} from '../data-access/quote.model';
-import { quoteActions, quoteFeature, selectQuote } from '../data-access/quote.store';
-import { PageToolbar } from '../../../shared/page-toolbar/page-toolbar';
-import { SelectField } from '../../../shared/select-field/select-field';
-import { TextField } from '../../../shared/text-field/text-field';
+} from '@app/pages/quotes/data-access/quote.model';
+import { quoteActions, quoteFeature, selectQuote } from '@app/pages/quotes/data-access/quote.store';
+import { PageToolbar } from '@app/shared/page-toolbar/page-toolbar';
+import { SelectField } from '@app/shared/select-field/select-field';
+import { TextField } from '@app/shared/text-field/text-field';
 
 // The form's own data shape. All three are strings because that is what the
 // inputs produce; conversion to `QuoteDraft` (cents, typed status) happens in

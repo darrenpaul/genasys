@@ -16,8 +16,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, map, shareReplay, catchError, throwError } from 'rxjs';
-import { ConfirmedCountry } from './customer.model';
-import { countrySnapshot } from './countries.snapshot';
+import { ConfirmedCountry } from '@app/pages/customers/data-access/customer.model';
+import { countrySnapshot } from '@app/pages/customers/data-access/countries.snapshot';
 
 /** A pickable country. `ConfirmedCountry` (code + name) is what gets saved; the flag is display-only. */
 export interface Country extends ConfirmedCountry {

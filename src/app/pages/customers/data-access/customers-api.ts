@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Customer, CustomerDraft } from './customer.model';
+import { Customer, CustomerDraft } from '@app/pages/customers/data-access/customer.model';
 
 // This file is the only place that knows the REST URLs. Components never call
 // `HttpClient` directly; they dispatch NgRx actions and the effects in
