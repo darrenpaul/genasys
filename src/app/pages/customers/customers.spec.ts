@@ -103,7 +103,7 @@ describe('Customers page', () => {
       [...root.querySelectorAll('tr.mat-mdc-row td:first-child')].map((cell) =>
         cell.textContent?.trim(),
       );
-    expect(names()).toEqual(['Maya Chen', 'Amina Okafor']);
+    expect(names()).toEqual(['Amina Okafor', 'Maya Chen']);
     expect(root.querySelector('.filter-results[role="status"]')?.textContent?.trim()).toBe(
       '2 customers found.',
     );
@@ -134,7 +134,7 @@ describe('Customers page', () => {
     expect(input.value).toBe('');
     expect(document.activeElement).toBe(input);
     expect(root.querySelector('button[aria-label="Clear customer search"]')).toBeNull();
-    expect(names()).toEqual(['Maya Chen', 'Amina Okafor']);
+    expect(names()).toEqual(['Amina Okafor', 'Maya Chen']);
     http.verify();
   });
 
@@ -435,8 +435,8 @@ describe('Customers page', () => {
     http.expectOne('/api/quotes').flush([...quotes, { id: 'q2', customerId: 'c2' }]);
     await fixture.whenStable();
     fixture.detectChanges();
-    // Default sort is by name: Maya (2 quotes) then Amina (0).
-    expect(cells()).toEqual(['2', '0']);
+    // Default sort follows displayed given name: Amina (0 quotes) then Maya (2).
+    expect(cells()).toEqual(['0', '2']);
     const aminaLink = root.querySelector<HTMLAnchorElement>(
       'a.quotes-button[aria-label="No quotes for Amina Okafor"]',
     )!;
@@ -489,8 +489,8 @@ describe('Customers page', () => {
     const links = [...root.querySelectorAll<HTMLAnchorElement>('a.quotes-button')];
     expect(links.map((link) => link.getAttribute('aria-disabled'))).toEqual([null, null]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/quotes?customerId=c2',
       '/quotes?customerId=c1',
+      '/quotes?customerId=c2',
     ]);
     http.verify();
   });

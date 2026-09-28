@@ -225,7 +225,7 @@ export class Customers {
     this.dataSource.sortingDataAccessor = (customer, column) => {
       switch (column) {
         case 'name':
-          return `${customer.lastName} ${customer.firstName}`.toLocaleLowerCase();
+          return `${customer.firstName} ${customer.lastName}`.toLocaleLowerCase();
         case 'cities':
           return customer.addresses[0]?.city.toLocaleLowerCase() ?? '';
         case 'universities':
